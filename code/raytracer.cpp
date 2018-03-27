@@ -3,9 +3,12 @@
 #include <math.h>
 #include <string>
 
+// TODO(Michael): camera should be struct
+// TODO(Michael): viewport should be struct
+// TODO(Michael): transform struct for camera and viewport?
 // TODO(Michael): figure out why the image is flipped along the y-axis. -> see below where viewSide is computed!
-// TODO(Michael): lock viewport to camera.
 // TODO(Michael): write ppm data into buffer and write to file at the end.
+// TODO(Michael): read scene from file
 
 #define global_var static
 
@@ -70,13 +73,13 @@ struct sphere
     float radius;
 };
 
-global_var v3 cameraPos = { 0.0f, 0.0f, 5.0f };
+global_var v3 cameraPos = { 3.0f, 0.0f, 5.0f };
 global_var v3 lookAt = { 0.0f, 0.0f, 0.0f }; // viewport center
 global_var v3 up = { 0, 1, 0 };
 global_var float viewPortWidth = 2.0f;
 global_var float viewPortHeight = 2.0f;
-global_var int resolutionX = 12;
-global_var int resolutionY = 12;
+global_var int resolutionX = 32;
+global_var int resolutionY = 32;
 
 v3 cross(v3 a, v3 b)
 {
@@ -95,14 +98,17 @@ float dot(v3 a, v3 b)
         a[2] * b[2];
 }
 
+float length(v3 v)
+{
+    return sqrt(
+        v[0] * v[0] +
+        v[1] * v[1] +
+        v[2] * v[2]);
+}
+
 v3 normalize(v3 a)
 {
-    float length = sqrt(
-        a[0] * a[0] +
-        a[1] * a[1] +
-        a[2] * a[2]);
-    
-    return a / length;
+    return a / length(a);
 }
 
 float primaryRay(v3 rayOrigin, v3 rayDirection, sphere object)
@@ -138,7 +144,9 @@ int main (int argc, char** argv)
     fprintf(ppmFile, ppmHeader.c_str());
     
     // compute view, right and up vectors via Gram-Schmidt orthogonalization (p. 236 Van Verth)
-    v3 viewDir = normalize(lookAt - cameraPos);
+    v3 viewDir = lookAt - cameraPos;
+    float cameraDistance = length(viewDir);
+    viewDir = normalize(viewDir);
     v3 viewUp = normalize(up - (viewDir * dot(up, viewDir)));
     v3 viewSide = cross(viewDir, viewUp); // TODO(Michael): righ or left handed system? FIGURE THIS OUT!!!!
     
@@ -150,7 +158,7 @@ int main (int argc, char** argv)
     
     // test object
     sphere testSphere;
-    testSphere.pos = { 2.0f, 1.0f, -10.0f };
+    testSphere.pos = { 0.0f, 0.0f, 0.0f };
     testSphere.radius = 1.0f;
     
     for (int row = 0;
@@ -168,22 +176,19 @@ int main (int argc, char** argv)
             v3 viewPortVec = { viewportX, viewportY, viewportZ };
             //viewPortVec = cameraPos + viewPortVec;
             
-            // compute ray from camera pos to relative viewport pixel. (static viewport)
-            v3 ray = normalize(viewPortVec - cameraPos);
             // NOTE(Michael): if ray is normalized the quadratic equation
             // easier to solve.See
             // https://www.siggraph.org/education/materials/HyperGraph/raytrace/rtinter1.htm
             
             // compute ray from camera pos to relative viewport pixel
-            v3 originToCenter = cameraPos + viewDir * 5; // TODO(Michael): compute distance from camera to
-            // viewport center.
+            v3 originToCenter = cameraPos +  cameraDistance * viewDir;
             // NOTE(Michael): -viewportY, because relative viewport Y goes from top(-) to bottom(+)
             v3 centerToPixel = originToCenter + (viewportX * viewSide) + (-viewportY * viewUp);
-            v3 cameraToPixel = centerToPixel - cameraPos;
-            cameraToPixel = normalize(cameraToPixel);
+            v3 ray = centerToPixel - cameraPos;
+            ray = normalize(ray);
             
             // test intersection with objects
-            float distance = primaryRay(cameraPos, cameraToPixel, testSphere);
+            float distance = primaryRay(cameraPos, ray, testSphere);
             
 #define toTerminal 1
             // print to console
