@@ -1,8 +1,10 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
+#include <stdint.h>
 #include <string>
 
+// TODO(Michael): fix aspect ration when res is not x = y
 // TODO(Michael): camera should be struct
 // TODO(Michael): viewport should be struct
 // TODO(Michael): transform struct for camera and viewport?
@@ -16,7 +18,8 @@ struct v3
 {
     float components[3] = { };
     
-    float operator[](int index)
+    
+    float& operator[](int index)
     {
         return components[index];
     }
@@ -67,19 +70,26 @@ v3 operator*(float scalar, v3 v)
     };
 }
 
+struct light
+{
+    v3 pos;
+    float r, g, b;
+};
+
 struct sphere
 {
     v3 pos;
     float radius;
+    float r, g, b; // is this the diffuse?
 };
 
-global_var v3 cameraPos = { 3.0f, 0.0f, 5.0f };
+global_var v3 cameraPos = { 0.0f, 0.0f, 20.0f };
 global_var v3 lookAt = { 0.0f, 0.0f, 0.0f }; // viewport center
 global_var v3 up = { 0, 1, 0 };
 global_var float viewPortWidth = 2.0f;
 global_var float viewPortHeight = 2.0f;
-global_var int resolutionX = 32;
-global_var int resolutionY = 32;
+global_var int resolutionX = 2048;
+global_var int resolutionY = 2048;
 
 v3 cross(v3 a, v3 b)
 {
@@ -134,6 +144,18 @@ float primaryRay(v3 rayOrigin, v3 rayDirection, sphere object)
     return (-b + droot) / 2;
 }
 
+v3 diffuse(light l, sphere s, v3 point)
+{
+    v3 normal = normalize(point - s.pos);
+    v3 pointToLight = normalize(l.pos - point); // TODO(Michael): why -1?
+    v3 illumination;
+    illumination[0] = l.r * s.r * dot(normal, pointToLight);
+    illumination[1] = l.g * s.g * dot(normal, pointToLight);
+    illumination[2] = l.b * s.b * dot(normal, pointToLight);
+    
+    return illumination;
+};
+
 int main (int argc, char** argv)
 {
     // create ppm file and header
@@ -145,10 +167,11 @@ int main (int argc, char** argv)
     
     // compute view, right and up vectors via Gram-Schmidt orthogonalization (p. 236 Van Verth)
     v3 viewDir = lookAt - cameraPos;
-    float cameraDistance = length(viewDir);
+    float cameraDistance = length(viewDir); // TODO(Michael): LOL!
     viewDir = normalize(viewDir);
     v3 viewUp = normalize(up - (viewDir * dot(up, viewDir)));
     v3 viewSide = cross(viewDir, viewUp); // TODO(Michael): righ or left handed system? FIGURE THIS OUT!!!!
+    // NOTE(Michael): https://en.wikipedia.org/wiki/Right-hand_rule
     
     // viewport attributes
     float pixelWidth  = viewPortWidth / resolutionX;
@@ -160,6 +183,16 @@ int main (int argc, char** argv)
     sphere testSphere;
     testSphere.pos = { 0.0f, 0.0f, 0.0f };
     testSphere.radius = 1.0f;
+    testSphere.r = 1.0f;
+    testSphere.g = 1.0f;
+    testSphere.b = 1.0f;
+    
+    // test lights
+    light testLight;
+    testLight.pos = { -10.0f, 5.0f, 3.0f };
+    testLight.r = 1.0f;
+    testLight.g = 1.0f;
+    testLight.b = 1.0f;
     
     for (int row = 0;
          row < resolutionY;
@@ -181,7 +214,7 @@ int main (int argc, char** argv)
             // https://www.siggraph.org/education/materials/HyperGraph/raytrace/rtinter1.htm
             
             // compute ray from camera pos to relative viewport pixel
-            v3 originToCenter = cameraPos +  cameraDistance * viewDir;
+            v3 originToCenter = cameraPos +  5.0 * viewDir;
             // NOTE(Michael): -viewportY, because relative viewport Y goes from top(-) to bottom(+)
             v3 centerToPixel = originToCenter + (viewportX * viewSide) + (-viewportY * viewUp);
             v3 ray = centerToPixel - cameraPos;
@@ -190,14 +223,30 @@ int main (int argc, char** argv)
             // test intersection with objects
             float distance = primaryRay(cameraPos, ray, testSphere);
             
-#define toTerminal 1
+#define toTerminal 0
             // print to console
             if (distance > 0)
             {
+                v3 diffuseReflection = diffuse(testLight, testSphere, cameraPos + (distance * ray));
 #if toTerminal
                 printf ("X ");
 #endif
-                fprintf(ppmFile, "255 255 255 ");
+                float r = testSphere.r * 0.4 + 0.6 * diffuseReflection[0];
+                float g = testSphere.g * 0.4 + 0.6 * diffuseReflection[1];
+                float b = testSphere.b * 0.4 + 0.6 * diffuseReflection[2];
+                
+                if (r > 1.0f) r = 1.0f;
+                if (g > 1.0f) g = 1.0f;
+                if (b > 1.0f) b = 1.0f;
+                if (r < 0.0f) r = 0.0f;
+                if (g < 0.0f) g = 0.0f;
+                if (b < 0.0f) b = 0.0f;
+                uint8_t ir = 255.99f * r;
+                uint8_t ig = 255.99f * g;
+                uint8_t ib = 255.99f * b;
+                
+                std::string rgb = std::to_string(ir) + " " + std::to_string(ig) + " " + std::to_string(ib) + " ";
+                fprintf(ppmFile, rgb.c_str());
             }
             else
             {
