@@ -88,8 +88,8 @@ global_var v3 lookAt = { 0.0f, 0.0f, 0.0f }; // viewport center
 global_var v3 up = { 0, 1, 0 };
 global_var float viewPortWidth = 2.0f;
 global_var float viewPortHeight = 2.0f;
-global_var int resolutionX = 2048;
-global_var int resolutionY = 2048;
+global_var int resolutionX = 1920;
+global_var int resolutionY = 817;
 
 v3 cross(v3 a, v3 b)
 {
@@ -174,9 +174,10 @@ int main (int argc, char** argv)
     // NOTE(Michael): https://en.wikipedia.org/wiki/Right-hand_rule
     
     // viewport attributes
+    float aspectRatio = (float)resolutionX / (float)resolutionY;
     float pixelWidth  = viewPortWidth / resolutionX;
     float pixelHeight = viewPortHeight / resolutionY;
-    float stepX = pixelWidth  / 2.0f;
+    float stepX = pixelWidth / 2.0f;
     float stepY = pixelHeight / 2.0f;
     
     // test object
@@ -184,7 +185,7 @@ int main (int argc, char** argv)
     testSphere.pos = { 0.0f, 0.0f, 0.0f };
     testSphere.radius = 1.0f;
     testSphere.r = 1.0f;
-    testSphere.g = 1.0f;
+    testSphere.g = 0.0f;
     testSphere.b = 1.0f;
     
     // test lights
@@ -203,7 +204,7 @@ int main (int argc, char** argv)
              ++col)
         {
             // compute ray from origin to viewport pixel
-            float viewportX = pixelWidth * col - 1.0f + stepX;
+            float viewportX = pixelWidth * aspectRatio * col - aspectRatio + stepX;
             float viewportY = pixelHeight * row - 1.0f + stepY;
             float viewportZ = 0; // // NOTE(Michael): depends on camera pos
             v3 viewPortVec = { viewportX, viewportY, viewportZ };

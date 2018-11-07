@@ -1,0 +1,44 @@
+M-b        Switch to buffer in the current window.
+M-Shift-b  Switch to buffer in the other window.
+
+M-f        Load file in the current window.
+M-Shift-f  Load file in the other window.
+
+M-s        Save teh file in the current window.
+M-m        Looks and executes "build.bat"
+M-r        Revert buffer.
+
+M-w        Switch to the other window.
+
+M-c        Toggles between H file and CPP file in current window.
+M-Shift-c  Toggles between H file and CPP file in other window.
+
+M-k        Kills a buffer (ask to save it first if it is modified).
+
+C-Space    Sets the mark.
+C-Tab      Reindent block.
+C-q        Copies the block.
+C-f        Pastes the block.
+C-w        Cuts the block.
+M-Shift-;  Pops back to the prev. mark.
+
+M-u        Undo
+
+M-j        Jump to a function by name.
+C-s        Start incremental search.
+ C-s       Moves to next occurence.
+ C-r       Moves to previous occurence.
+
+M-o        Query replace.
+M-l        Replace inside block
+
+M-[        Begin recording keyboard macro.
+M-]        End recording keyboard macro.
+M-'        Execute keyboard macro.
+
+M-.        reflow a comment.
+
+M-n        goto next error after a compile.
+M-Shift-n  goto prev. error after a compile.
+
+M-g        gogo linum.
