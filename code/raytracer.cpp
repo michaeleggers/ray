@@ -70,6 +70,12 @@ v3 operator*(float scalar, v3 v)
     };
 }
 
+enum Shading_t
+{
+    DIFFUSE,
+    NORMALS
+};
+
 struct light
 {
     v3 pos;
@@ -81,9 +87,10 @@ struct sphere
     v3 pos;
     float radius;
     float r, g, b; // is this the diffuse?
+    Shading_t shadingType;
 };
 
-global_var v3 cameraPos = { 0.0f, 0.0f, 20.0f };
+global_var v3 cameraPos = { 0.0f, 0.0f, 2.0f };
 global_var v3 lookAt = { 0.0f, 0.0f, 0.0f }; // viewport center
 global_var v3 up = { 0, 1, 0 };
 global_var float viewPortWidth = 2.0f;
@@ -154,7 +161,15 @@ v3 diffuse(light l, sphere s, v3 point)
     illumination[2] = l.b * s.b * dot(normal, pointToLight);
     
     return illumination;
-};
+}
+
+v3 colorizeNormal(sphere s, v3 point)
+{
+    v3 normal = normalize(point - s.pos);
+    // mapping components of normalvector from [-1.0,1.0] to [0.0,1.0]
+    v3 foo = { normal[0] + 1, normal[1] + 1, normal[2] + 1};
+    return 0.5f * foo;
+}
 
 int main (int argc, char** argv)
 {
@@ -187,6 +202,7 @@ int main (int argc, char** argv)
     testSphere.r = 1.0f;
     testSphere.g = 0.0f;
     testSphere.b = 1.0f;
+    testSphere.shadingType = NORMALS;
     
     // test lights
     light testLight;
@@ -228,20 +244,45 @@ int main (int argc, char** argv)
             // print to console
             if (distance > 0)
             {
-                v3 diffuseReflection = diffuse(testLight, testSphere, cameraPos + (distance * ray));
 #if toTerminal
                 printf ("X ");
 #endif
-                float r = testSphere.r * 0.4 + 0.6 * diffuseReflection[0];
-                float g = testSphere.g * 0.4 + 0.6 * diffuseReflection[1];
-                float b = testSphere.b * 0.4 + 0.6 * diffuseReflection[2];
                 
-                if (r > 1.0f) r = 1.0f;
-                if (g > 1.0f) g = 1.0f;
-                if (b > 1.0f) b = 1.0f;
-                if (r < 0.0f) r = 0.0f;
-                if (g < 0.0f) g = 0.0f;
-                if (b < 0.0f) b = 0.0f;
+                float r, g, b;
+                switch (testSphere.shadingType)
+                {
+                    case DIFFUSE:
+                    {
+                        v3 diffuseReflection = diffuse(testLight, testSphere, cameraPos + (distance * ray));
+                        r = testSphere.r * 0.4 + 0.6 * diffuseReflection[0];
+                        g = testSphere.g * 0.4 + 0.6 * diffuseReflection[1];
+                        b = testSphere.b * 0.4 + 0.6 * diffuseReflection[2];
+                        if (r > 1.0f) r = 1.0f;
+                        if (g > 1.0f) g = 1.0f;
+                        if (b > 1.0f) b = 1.0f;
+                        if (r < 0.0f) r = 0.0f;
+                        if (g < 0.0f) g = 0.0f;
+                        if (b < 0.0f) b = 0.0f;
+                    }
+                    break;
+                    
+                    case NORMALS:
+                    {
+                        v3 normalColor = colorizeNormal(testSphere, cameraPos + (distance * ray));
+                        r = normalColor[0];
+                        g = normalColor[1];
+                        b = normalColor[2];
+                    }
+                    break;
+                    
+                    default:
+                    {
+                        r = 0.0f;
+                        g = 0.0f;
+                        b = 0.0f;
+                    }
+                }
+                
                 uint8_t ir = 255.99f * r;
                 uint8_t ig = 255.99f * g;
                 uint8_t ib = 255.99f * b;
