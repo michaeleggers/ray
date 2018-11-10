@@ -215,7 +215,7 @@ int main (int argc, char** argv)
             // https://www.siggraph.org/education/materials/HyperGraph/raytrace/rtinter1.htm
             
             // compute ray from camera pos to relative viewport pixel
-            v3 originToCenter = cameraPos +  5.0 * viewDir;
+            v3 originToCenter = cameraPos + viewDir;
             // NOTE(Michael): -viewportY, because relative viewport Y goes from top(-) to bottom(+)
             v3 centerToPixel = originToCenter + (viewportX * viewSide) + (-viewportY * viewUp);
             v3 ray = centerToPixel - cameraPos;
