@@ -128,22 +128,17 @@ v3 normalize(v3 a)
     return a / length(a);
 }
 
+// check if ray intersects sphere
+// see: https://www.siggraph.org/education/materials/HyperGraph/raytrace/rtinter1.htm
 float primaryRay(v3 rayOrigin, v3 rayDirection, sphere object)
 {
-    float b = 2 * (rayDirection[0] * (rayOrigin[0] - object.pos[0]) +
-                   rayDirection[1] * (rayOrigin[1] - object.pos[1]) +
-                   rayDirection[2] * (rayOrigin[2] - object.pos[2])
-                   );
-    float c = 
-        (rayOrigin[0] - object.pos[0]) * (rayOrigin[0] - object.pos[0]) +
-        (rayOrigin[1] - object.pos[1]) * (rayOrigin[1] - object.pos[1]) +
-        (rayOrigin[2] - object.pos[2]) * (rayOrigin[2] - object.pos[2]) -
+    v3 rayOriginToSphereCenter = rayOrigin - object.pos;
+    float b = 2 * dot(rayDirection, rayOriginToSphereCenter);
+    float c = dot(rayOriginToSphereCenter, rayOriginToSphereCenter) -
         object.radius * object.radius;
-    
     float discriminant = b*b - 4*c;
     if (discriminant < 0)
         return -1;
-    
     float droot = sqrt(discriminant);
     float root1 = (-b - droot) / 2;
     if (root1 > 0)
