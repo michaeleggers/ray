@@ -197,7 +197,7 @@ int main (int argc, char** argv)
     testSphere.r = 1.0f;
     testSphere.g = 0.0f;
     testSphere.b = 1.0f;
-    testSphere.shadingType = NORMALS;
+    testSphere.shadingType = DIFFUSE;
     
     // test lights
     light testLight;
@@ -287,10 +287,18 @@ int main (int argc, char** argv)
             }
             else
             {
+                v3 white = { 1.0f, 1.0f, 1.0f };
+                v3 lightBlue = { 0.5f, 0.7f, 1.0f };
+                float t = 0.5f*(ray[1] + 1.0f);
+                v3 color = (1.0 - t)*white + t*lightBlue;
+                uint8_t ir = 255.99f * color[0];
+                uint8_t ig = 255.99f * color[1];
+                uint8_t ib = 255.99f * color[2];
+                std::string background = std::to_string(ir) + " " + std::to_string(ig) + " " + std::to_string(ib) + " ";
 #if toTerminal
                 printf ("- ");
 #endif
-                fprintf(ppmFile, "0   0   0   ");
+                fprintf(ppmFile, background.c_str());
             }
         }
 #if toTerminal
