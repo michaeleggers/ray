@@ -4,6 +4,8 @@
 #include <stdint.h>
 #include <string>
 
+#include "raytracer.h"
+
 // TODO(Michael): fix aspect ration when res is not x = y
 // TODO(Michael): camera should be struct
 // TODO(Michael): viewport should be struct
@@ -11,84 +13,6 @@
 // TODO(Michael): figure out why the image is flipped along the y-axis. -> see below where viewSide is computed!
 // TODO(Michael): write ppm data into buffer and write to file at the end.
 // TODO(Michael): read scene from file
-
-#define global_var static
-
-struct v3
-{
-    float components[3] = { };
-    
-    
-    float& operator[](int index)
-    {
-        return components[index];
-    }
-    
-    v3 operator-(v3 b)
-    {
-        return {
-            components[0] - b[0],
-            components[1] - b[1],
-            components[2] - b[2]
-        };
-    }
-    
-    v3 operator+(v3 b)
-    {
-        return {
-            components[0] + b[0],
-            components[1] + b[1],
-            components[2] + b[2]
-        };
-    }
-    
-    v3 operator/(float scalar)
-    {
-        return {
-            components[0] / scalar,
-            components[1] / scalar,
-            components[2] / scalar
-        };
-    }
-    
-    v3 operator*(float scalar)
-    {
-        return {
-            components[0] * scalar,
-            components[1] * scalar,
-            components[2] * scalar
-        };
-    }
-};
-
-v3 operator*(float scalar, v3 v)
-{
-    return {
-        v[0] * scalar,
-        v[1] * scalar,
-        v[2] * scalar
-    };
-}
-
-enum Shading_t
-{
-    DIFFUSE,
-    NORMALS
-};
-
-struct light
-{
-    v3 pos;
-    float r, g, b;
-};
-
-struct sphere
-{
-    v3 pos;
-    float radius;
-    float r, g, b; // is this the diffuse?
-    Shading_t shadingType;
-};
 
 global_var v3 cameraPos = { 0.0f, 0.0f, 2.0f };
 global_var v3 lookAt = { 0.0f, 0.0f, 0.0f }; // viewport center
@@ -130,7 +54,7 @@ v3 normalize(v3 a)
 
 // check if ray intersects sphere
 // see: https://www.siggraph.org/education/materials/HyperGraph/raytrace/rtinter1.htm
-float primaryRay(v3 rayOrigin, v3 rayDirection, sphere object)
+float primaryRaySphere(v3 rayOrigin, v3 rayDirection, Sphere object)
 {
     v3 rayOriginToSphereCenter = rayOrigin - object.pos;
     float b = 2 * dot(rayDirection, rayOriginToSphereCenter);
@@ -146,7 +70,7 @@ float primaryRay(v3 rayOrigin, v3 rayDirection, sphere object)
     return (-b + droot) / 2;
 }
 
-v3 diffuse(light l, sphere s, v3 point)
+v3 diffuse(Light l, Sphere s, v3 point)
 {
     v3 normal = normalize(point - s.pos);
     v3 pointToLight = normalize(l.pos - point); // TODO(Michael): why -1?
@@ -158,7 +82,7 @@ v3 diffuse(light l, sphere s, v3 point)
     return illumination;
 }
 
-v3 colorizeNormal(sphere s, v3 point)
+v3 colorizeNormal(Sphere s, v3 point)
 {
     v3 normal = normalize(point - s.pos);
     // mapping components of normalvector from [-1.0,1.0] to [0.0,1.0]
@@ -191,16 +115,19 @@ int main (int argc, char** argv)
     float stepY = pixelHeight / 2.0f;
     
     // test object
-    sphere testSphere;
-    testSphere.pos = { 0.0f, 0.0f, 0.0f };
-    testSphere.radius = 1.0f;
-    testSphere.r = 1.0f;
-    testSphere.g = 0.0f;
-    testSphere.b = 1.0f;
-    testSphere.shadingType = DIFFUSE;
+    Hitable testsphereHtbl = {};
+    Sphere testsphere;
+    testsphere.pos = { 0.0f, 0.0f, 0.0f };
+    testsphere.radius = 1.0f;
+    testsphere.r = 1.0f;
+    testsphere.g = 0.0f;
+    testsphere.b = 1.0f;
+    testsphere.shadingType = NORMALS;
+    testsphereHtbl.geometryData.sph = testsphere;
+    testsphereHtbl.geometry = SPHERE;
     
     // test lights
-    light testLight;
+    Light testLight;
     testLight.pos = { -10.0f, 5.0f, 3.0f };
     testLight.r = 1.0f;
     testLight.g = 1.0f;
@@ -233,7 +160,8 @@ int main (int argc, char** argv)
             ray = normalize(ray);
             
             // test intersection with objects
-            float distance = primaryRay(cameraPos, ray, testSphere);
+            float distance = primaryRaySphere(cameraPos, ray, testsphereHtbl.geometryData.sph);
+            // float distance = primaryRaySphere(cameraPos, ray, testSphere);
             
 #define toTerminal 0
             // print to console
@@ -244,14 +172,14 @@ int main (int argc, char** argv)
 #endif
                 
                 float r, g, b;
-                switch (testSphere.shadingType)
+                switch (testsphereHtbl.geometryData.sph.shadingType)
                 {
                     case DIFFUSE:
                     {
-                        v3 diffuseReflection = diffuse(testLight, testSphere, cameraPos + (distance * ray));
-                        r = testSphere.r * 0.4 + 0.6 * diffuseReflection[0];
-                        g = testSphere.g * 0.4 + 0.6 * diffuseReflection[1];
-                        b = testSphere.b * 0.4 + 0.6 * diffuseReflection[2];
+                        v3 diffuseReflection = diffuse(testLight, testsphereHtbl.geometryData.sph, cameraPos + (distance * ray));
+                        r = testsphereHtbl.geometryData.sph.r * 0.4 + 0.6 * diffuseReflection[0];
+                        g = testsphereHtbl.geometryData.sph.g * 0.4 + 0.6 * diffuseReflection[1];
+                        b = testsphereHtbl.geometryData.sph.b * 0.4 + 0.6 * diffuseReflection[2];
                         if (r > 1.0f) r = 1.0f;
                         if (g > 1.0f) g = 1.0f;
                         if (b > 1.0f) b = 1.0f;
@@ -263,7 +191,7 @@ int main (int argc, char** argv)
                     
                     case NORMALS:
                     {
-                        v3 normalColor = colorizeNormal(testSphere, cameraPos + (distance * ray));
+                        v3 normalColor = colorizeNormal(testsphereHtbl.geometryData.sph, cameraPos + (distance * ray));
                         r = normalColor[0];
                         g = normalColor[1];
                         b = normalColor[2];
