@@ -54,20 +54,73 @@ v3 normalize(v3 a)
 
 // check if ray intersects sphere
 // see: https://www.siggraph.org/education/materials/HyperGraph/raytrace/rtinter1.htm
-float primaryRaySphere(v3 rayOrigin, v3 rayDirection, Sphere object)
+bool hitSphere(v3 rayOrigin, v3 rayDirection, Sphere object, HitRecord * hitrec)
 {
+    bool hasHit = false;
+    float distance;
     v3 rayOriginToSphereCenter = rayOrigin - object.pos;
     float b = 2 * dot(rayDirection, rayOriginToSphereCenter);
     float c = dot(rayOriginToSphereCenter, rayOriginToSphereCenter) -
         object.radius * object.radius;
     float discriminant = b*b - 4*c;
-    if (discriminant < 0)
-        return -1;
-    float droot = sqrt(discriminant);
-    float root1 = (-b - droot) / 2;
-    if (root1 > 0)
-        return root1;
-    return (-b + droot) / 2;
+    if (discriminant < 0) // TODO(Michael): how to init hitrec properly in this case?
+    {
+        hasHit = false;
+        hitrec->distance = -1;
+    }
+    else
+    {
+        float droot = sqrt(discriminant);
+        float root1 = (-b - droot) / 2;
+        if (root1 > 0)
+            distance = root1;
+        else
+            distance = (-b + droot) / 2;
+        hasHit = true;
+        hitrec->distance = distance;
+        hitrec->point = rayOrigin + distance*rayDirection;
+        hitrec->normal = normalize(hitrec->point - object.pos);
+    }
+    
+    return hasHit;
+}
+
+HitRecord hit(v3 rayOrigin, v3 rayDirection, Hitable* hitables, int hitableCount)
+{
+    Hitable * hitable = hitables;
+    HitRecord currentHitRec;
+    currentHitRec.distance = -1.0f;
+    float closestSoFar = 0x7FFFFFFF;
+    float d;
+    for (int i = 0;
+         i < hitableCount;
+         i++)
+    {
+        HitRecord tempHitrec;
+        bool hasHit = false;
+        tempHitrec.shadingType = hitable->shadingType;
+        switch (hitable->geometry)
+        {
+            case SPHERE:
+            {
+                hasHit = hitSphere(rayOrigin, rayDirection, hitable->sphere, &tempHitrec);
+            }
+            break;
+        }
+        
+        if (hasHit)
+        {
+            if (tempHitrec.distance < closestSoFar)
+            {
+                currentHitRec = tempHitrec;
+                closestSoFar = currentHitRec.distance;
+            }
+        }
+        hitable++;
+    }
+    
+    
+    return currentHitRec;
 }
 
 v3 diffuse(Light l, Sphere s, v3 point)
@@ -88,6 +141,24 @@ v3 colorizeNormal(Sphere s, v3 point)
     // mapping components of normalvector from [-1.0,1.0] to [0.0,1.0]
     v3 foo = { normal[0] + 1, normal[1] + 1, normal[2] + 1};
     return 0.5f * foo;
+}
+
+v3 color(HitRecord * hitrec)
+{
+    float distance = hitrec->distance;
+    v3 point = hitrec->point;
+    v3 normal = hitrec->normal;
+    v3 color = {1, 0, 0 }; // NOTE(Michael): debug red color
+    switch (hitrec->shadingType)
+    {
+        case NORMALS:
+        {
+            color = { normal[0] + 1, normal[1] + 1, normal[2] + 1 };
+            color = 0.5f*color;
+        }
+        break;
+    }
+    return color;
 }
 
 int main (int argc, char** argv)
@@ -114,17 +185,19 @@ int main (int argc, char** argv)
     float stepX = pixelWidth / 2.0f;
     float stepY = pixelHeight / 2.0f;
     
-    // test object
-    Hitable testsphereHtbl = {};
-    Sphere testsphere;
-    testsphere.pos = { 0.0f, 0.0f, 0.0f };
-    testsphere.radius = 1.0f;
-    testsphere.r = 1.0f;
-    testsphere.g = 0.0f;
-    testsphere.b = 1.0f;
-    testsphere.shadingType = NORMALS;
-    testsphereHtbl.sphere = testsphere;
-    testsphereHtbl.geometry = SPHERE;
+    // test objects
+    Hitable testsphere1 = {};
+    testsphere1.geometry = SPHERE;
+    testsphere1.shadingType = NORMALS;
+    testsphere1.sphere = { {0, 0, -1.0}, 0.5, 1, 0, 1 };
+    
+    Hitable testsphere2 = {};
+    testsphere2.geometry = SPHERE;
+    testsphere2.shadingType = NORMALS;
+    testsphere2.sphere = { {0, -100.5, -1}, 100, 1, 0, 0 };
+    
+    // add test objects to "scene"
+    Hitable scene[2] = { testsphere1, testsphere2 };
     
     // test lights
     Light testLight;
@@ -133,11 +206,11 @@ int main (int argc, char** argv)
     testLight.g = 1.0f;
     testLight.b = 1.0f;
     
-    for (int row = 0;
+    for (int row = 351;
          row < resolutionY;
          ++row)
     {
-        for (int col = 0;
+        for (int col = 955;
              col < resolutionX;
              ++col)
         {
@@ -160,26 +233,26 @@ int main (int argc, char** argv)
             ray = normalize(ray);
             
             // test intersection with objects
-            float distance = primaryRaySphere(cameraPos, ray, testsphereHtbl.sphere);
+            HitRecord hitrec = hit(cameraPos, ray, scene, 2);
             // float distance = primaryRaySphere(cameraPos, ray, testSphere);
             
 #define toTerminal 0
             // print to console
-            if (distance > 0)
+            if (hitrec.distance >= 0.0f)
             {
 #if toTerminal
                 printf ("X ");
 #endif
-                
+                /*
                 float r, g, b;
-                switch (testsphereHtbl.sphere.shadingType)
+                switch (testsphere1.sphere.shadingType)
                 {
                     case DIFFUSE:
                     {
-                        v3 diffuseReflection = diffuse(testLight, testsphereHtbl.sphere, cameraPos + (distance * ray));
-                        r = testsphereHtbl.sphere.r * 0.4 + 0.6 * diffuseReflection[0];
-                        g = testsphereHtbl.sphere.g * 0.4 + 0.6 * diffuseReflection[1];
-                        b = testsphereHtbl.sphere.b * 0.4 + 0.6 * diffuseReflection[2];
+                        v3 diffuseReflection = diffuse(testLight, testsphere1.sphere, cameraPos + (distance * ray));
+                        r = testsphere1.sphere.r * 0.4 + 0.6 * diffuseReflection[0];
+                        g = testsphere1.sphere.g * 0.4 + 0.6 * diffuseReflection[1];
+                        b = testsphere1.sphere.b * 0.4 + 0.6 * diffuseReflection[2];
                         if (r > 1.0f) r = 1.0f;
                         if (g > 1.0f) g = 1.0f;
                         if (b > 1.0f) b = 1.0f;
@@ -191,7 +264,7 @@ int main (int argc, char** argv)
                     
                     case NORMALS:
                     {
-                        v3 normalColor = colorizeNormal(testsphereHtbl.sphere, cameraPos + (distance * ray));
+                        v3 normalColor = colorizeNormal(testsphere1.sphere, cameraPos + (distance * ray));
                         r = normalColor[0];
                         g = normalColor[1];
                         b = normalColor[2];
@@ -205,10 +278,13 @@ int main (int argc, char** argv)
                         b = 0.0f;
                     }
                 }
+                */
                 
-                uint8_t ir = 255.99f * r;
-                uint8_t ig = 255.99f * g;
-                uint8_t ib = 255.99f * b;
+                v3 c = color(&hitrec);
+                
+                uint8_t ir = 255.99f * c[0];
+                uint8_t ig = 255.99f * c[1];
+                uint8_t ib = 255.99f * c[2];
                 
                 std::string rgb = std::to_string(ir) + " " + std::to_string(ig) + " " + std::to_string(ib) + " ";
                 fprintf(ppmFile, rgb.c_str());
@@ -218,10 +294,10 @@ int main (int argc, char** argv)
                 v3 white = { 1.0f, 1.0f, 1.0f };
                 v3 lightBlue = { 0.5f, 0.7f, 1.0f };
                 float t = 0.5f*(ray[1] + 1.0f);
-                v3 color = (1.0 - t)*white + t*lightBlue;
-                uint8_t ir = 255.99f * color[0];
-                uint8_t ig = 255.99f * color[1];
-                uint8_t ib = 255.99f * color[2];
+                v3 c = (1.0 - t)*white + t*lightBlue;
+                uint8_t ir = 255.99f * c[0];
+                uint8_t ig = 255.99f * c[1];
+                uint8_t ib = 255.99f * c[2];
                 std::string background = std::to_string(ir) + " " + std::to_string(ig) + " " + std::to_string(ib) + " ";
 #if toTerminal
                 printf ("- ");

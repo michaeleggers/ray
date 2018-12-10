@@ -2,7 +2,6 @@
 #define RAYTRACER_H
 
 
-
 #define global_var static
 
 struct v3
@@ -83,19 +82,30 @@ struct Sphere
     v3 pos;
     float radius;
     float r, g, b; // is this the diffuse?
-    Shading_t shadingType;
 };
 
 
 struct Hitable
 {
     Geometry_t geometry;
+    Shading_t shadingType;
     union
     {
         Sphere sphere;
     };
 };
 
+struct HitRecord
+{
+    float distance;
+    v3 point;
+    v3 normal;
+    Shading_t shadingType;
+};
+
+
+// function prototypes
+v3 color(HitRecord * hitrec);
 float primaryRaySphere(v3 rayOrigin, v3 rayDirection, Sphere object);
 
 #endif RAYTRACER_H
