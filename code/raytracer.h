@@ -92,8 +92,8 @@ struct Hitable
     Geometry_t geometry;
     union
     {
-        Sphere sph;
-    } geometryData;
+        Sphere sphere;
+    };
 };
 
 float primaryRaySphere(v3 rayOrigin, v3 rayDirection, Sphere object);

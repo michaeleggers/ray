@@ -123,7 +123,7 @@ int main (int argc, char** argv)
     testsphere.g = 0.0f;
     testsphere.b = 1.0f;
     testsphere.shadingType = NORMALS;
-    testsphereHtbl.geometryData.sph = testsphere;
+    testsphereHtbl.sphere = testsphere;
     testsphereHtbl.geometry = SPHERE;
     
     // test lights
@@ -160,7 +160,7 @@ int main (int argc, char** argv)
             ray = normalize(ray);
             
             // test intersection with objects
-            float distance = primaryRaySphere(cameraPos, ray, testsphereHtbl.geometryData.sph);
+            float distance = primaryRaySphere(cameraPos, ray, testsphereHtbl.sphere);
             // float distance = primaryRaySphere(cameraPos, ray, testSphere);
             
 #define toTerminal 0
@@ -172,14 +172,14 @@ int main (int argc, char** argv)
 #endif
                 
                 float r, g, b;
-                switch (testsphereHtbl.geometryData.sph.shadingType)
+                switch (testsphereHtbl.sphere.shadingType)
                 {
                     case DIFFUSE:
                     {
-                        v3 diffuseReflection = diffuse(testLight, testsphereHtbl.geometryData.sph, cameraPos + (distance * ray));
-                        r = testsphereHtbl.geometryData.sph.r * 0.4 + 0.6 * diffuseReflection[0];
-                        g = testsphereHtbl.geometryData.sph.g * 0.4 + 0.6 * diffuseReflection[1];
-                        b = testsphereHtbl.geometryData.sph.b * 0.4 + 0.6 * diffuseReflection[2];
+                        v3 diffuseReflection = diffuse(testLight, testsphereHtbl.sphere, cameraPos + (distance * ray));
+                        r = testsphereHtbl.sphere.r * 0.4 + 0.6 * diffuseReflection[0];
+                        g = testsphereHtbl.sphere.g * 0.4 + 0.6 * diffuseReflection[1];
+                        b = testsphereHtbl.sphere.b * 0.4 + 0.6 * diffuseReflection[2];
                         if (r > 1.0f) r = 1.0f;
                         if (g > 1.0f) g = 1.0f;
                         if (b > 1.0f) b = 1.0f;
@@ -191,7 +191,7 @@ int main (int argc, char** argv)
                     
                     case NORMALS:
                     {
-                        v3 normalColor = colorizeNormal(testsphereHtbl.geometryData.sph, cameraPos + (distance * ray));
+                        v3 normalColor = colorizeNormal(testsphereHtbl.sphere, cameraPos + (distance * ray));
                         r = normalColor[0];
                         g = normalColor[1];
                         b = normalColor[2];
