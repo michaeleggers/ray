@@ -15,7 +15,7 @@
 // TODO(Michael): read scene from file
 
 global_var v3 cameraPos = { 0.0f, 0.0f, 2.0f };
-global_var v3 lookAt = { 0.0f, 0.0f, 1.9f }; // viewport center
+global_var v3 lookAt = { 0.0f, 0.0f, 0.0f }; // viewport center
 global_var v3 up = { 0, 1, 0 };
 global_var float viewPortWidth = 2.0f;
 global_var float viewPortHeight = 2.0f;
@@ -182,100 +182,55 @@ int main (int argc, char** argv)
              col < resolutionX;
              ++col)
         {
-            // compute ray from origin to viewport pixel
-            float viewportX = pixelWidth * aspectRatio * col - aspectRatio + stepX;
-            float viewportY = pixelHeight * row - 1.0f + stepY;
-            float viewportZ = lookAt[2]; // // NOTE(Michael): depends on camera pos
-            v3 viewPortVec = { viewportX, viewportY, viewportZ };
-            //viewPortVec = cameraPos + viewPortVec;
             
-            // NOTE(Michael): if ray is normalized the quadratic equation
-            // easier to solve.See
-            // https://www.siggraph.org/education/materials/HyperGraph/raytrace/rtinter1.htm
-            
-            // compute ray from camera pos to relative viewport pixel
-            v3 originToCenter = cameraPos + viewDir*cameraDistance;
-            // NOTE(Michael): -viewportY, because relative viewport Y goes from top(-) to bottom(+)
-            v3 centerToPixel = originToCenter + (viewportX * viewSide) + (-viewportY * viewUp);
-            v3 ray = centerToPixel - cameraPos;
-            ray = normalize(ray);
-            
-            // test intersection with objects
-            HitRecord hitrec = hit(cameraPos, ray, scene, 2);
-            // float distance = primaryRaySphere(cameraPos, ray, testSphere);
-            
-#define toTerminal 0
-            // print to console
-            if (hitrec.distance >= 0.0f)
+            int sampleCount = 10;
+            v3 c;
+            for (int i = 0;
+                 i < sampleCount;
+                 i++)
             {
-#if toTerminal
-                printf ("X ");
-#endif
-                /*
-                float r, g, b;
-                switch (testsphere1.sphere.shadingType)
+                // compute biases for supersampling
+                float colBias = (rand()/float(RAND_MAX));
+                float rowBias = (rand()/float(RAND_MAX));
+                
+                // compute ray from origin to viewport pixel
+                float viewportX = pixelWidth * aspectRatio * (float(col)+colBias) - aspectRatio + stepX;
+                float viewportY = pixelHeight * (float(row)+rowBias) - 1.0f + stepY;
+                
+                // NOTE(Michael): if ray is normalized the quadratic equation
+                // easier to solve.See
+                // https://www.siggraph.org/education/materials/HyperGraph/raytrace/rtinter1.htm
+                
+                // compute ray from camera pos to relative viewport pixel
+                v3 originToCenter = cameraPos + viewDir*cameraDistance;
+                
+                // NOTE(Michael): -viewportY, because relative viewport Y goes from top(-) to bottom(+)
+                v3 centerToPixel = originToCenter + (viewportX * viewSide) + (-viewportY * viewUp);
+                v3 ray = centerToPixel - cameraPos;
+                ray = normalize(ray);
+                
+                // test intersection with objects
+                HitRecord hitrec = hit(cameraPos, ray, scene, 2);
+                
+                if (hitrec.distance >= 0.0f)
                 {
-                    case DIFFUSE:
-                    {
-                        v3 diffuseReflection = diffuse(testLight, testsphere1.sphere, cameraPos + (distance * ray));
-                        r = testsphere1.sphere.r * 0.4 + 0.6 * diffuseReflection[0];
-                        g = testsphere1.sphere.g * 0.4 + 0.6 * diffuseReflection[1];
-                        b = testsphere1.sphere.b * 0.4 + 0.6 * diffuseReflection[2];
-                        if (r > 1.0f) r = 1.0f;
-                        if (g > 1.0f) g = 1.0f;
-                        if (b > 1.0f) b = 1.0f;
-                        if (r < 0.0f) r = 0.0f;
-                        if (g < 0.0f) g = 0.0f;
-                        if (b < 0.0f) b = 0.0f;
-                    }
-                    break;
-                    
-                    case NORMALS:
-                    {
-                        v3 normalColor = colorizeNormal(testsphere1.sphere, cameraPos + (distance * ray));
-                        r = normalColor[0];
-                        g = normalColor[1];
-                        b = normalColor[2];
-                    }
-                    break;
-                    
-                    default:
-                    {
-                        r = 0.0f;
-                        g = 0.0f;
-                        b = 0.0f;
-                    }
+                    c = c + color(&hitrec);
                 }
-                */
-                
-                v3 c = color(&hitrec);
-                
-                uint8_t ir = 255.99f * c[0];
-                uint8_t ig = 255.99f * c[1];
-                uint8_t ib = 255.99f * c[2];
-                
-                std::string rgb = std::to_string(ir) + " " + std::to_string(ig) + " " + std::to_string(ib) + " ";
-                fprintf(ppmFile, rgb.c_str());
+                else
+                {
+                    v3 white = { 1.0f, 1.0f, 1.0f };
+                    v3 lightBlue = { 0.5f, 0.7f, 1.0f };
+                    float t = 0.5f*(ray[1] + 1.0f);
+                    c = c + ( (1.0 - t)*white + t*lightBlue);
+                }
             }
-            else
-            {
-                v3 white = { 1.0f, 1.0f, 1.0f };
-                v3 lightBlue = { 0.5f, 0.7f, 1.0f };
-                float t = 0.5f*(ray[1] + 1.0f);
-                v3 c = (1.0 - t)*white + t*lightBlue;
-                uint8_t ir = 255.99f * c[0];
-                uint8_t ig = 255.99f * c[1];
-                uint8_t ib = 255.99f * c[2];
-                std::string background = std::to_string(ir) + " " + std::to_string(ig) + " " + std::to_string(ib) + " ";
-#if toTerminal
-                printf ("- ");
-#endif
-                fprintf(ppmFile, background.c_str());
-            }
+            c = c /  float(sampleCount);
+            uint8_t ir = 255.99f * c[0];
+            uint8_t ig = 255.99f * c[1];
+            uint8_t ib = 255.99f * c[2];
+            std::string rgb = std::to_string(ir) + " " + std::to_string(ig) + " " + std::to_string(ib) + " ";
+            fprintf(ppmFile, rgb.c_str());
         }
-#if toTerminal
-        printf ("\n");
-#endif
         fprintf(ppmFile, "\n");
     }
     fclose(ppmFile);
