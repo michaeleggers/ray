@@ -127,15 +127,17 @@ struct Hitable
 
 struct HitRecord
 {
+    Shading_t shadingType;
     float distance;
     v3 point;
     v3 normal;
-    Shading_t shadingType;
+    //Shading_t shadingType;
 };
 
 
 // function prototypes
-v3 color(HitRecord * hitrec);
+HitRecord hit(v3 rayOrigin, v3 rayDirection, Hitable* hitables, int hitableCount);
+v3 color(HitRecord * hitrec, Hitable * hitables, int hitableCount);
 float primaryRaySphere(v3 rayOrigin, v3 rayDirection, Sphere object);
 
 #endif RAYTRACER_H

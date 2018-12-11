@@ -111,22 +111,42 @@ v3 colorizeNormal(Sphere s, v3 point)
     return 0.5f * foo;
 }
 
-v3 color(HitRecord * hitrec)
+v3 color(HitRecord * hitrec, Hitable * hitables, int hitableCount)
 {
     float distance = hitrec->distance;
     v3 point = hitrec->point;
     v3 normal = hitrec->normal;
-    v3 color = {1, 0, 0 }; // NOTE(Michael): debug red color
+    v3 c = {102.0f/255.0f, 102.0f/255.0f, 255.0f/255.0f }; // NOTE(Michael): debug red color
     switch (hitrec->shadingType)
     {
         case NORMALS:
         {
-            color = { normal[0] + 1, normal[1] + 1, normal[2] + 1 };
-            color = 0.5f*color;
+            c = { normal[0] + 1, normal[1] + 1, normal[2] + 1 };
+            c = 0.5f*c;
+        }
+        break;
+        
+        case DIFFUSE:
+        {
+            v3 p;
+            v3 one = {1,1,1};
+            v3 test;
+            do 
+            {
+                test = { 
+                    rand()/float(RAND_MAX),
+                    rand()/float(RAND_MAX),
+                    rand()/float(RAND_MAX) };
+                p = 2.0f*test - one;
+            } while(length(p) >= 1.0f);
+            v3 target = point + normal + p;
+            HitRecord nextHitrec = hit(point, target - point, hitables, hitableCount);
+            if (nextHitrec.distance >= 0.0f)
+                c = 0.5f*color(&nextHitrec, hitables, hitableCount);
         }
         break;
     }
-    return color;
+    return c;
 }
 
 int main (int argc, char** argv)
@@ -156,12 +176,12 @@ int main (int argc, char** argv)
     // test objects
     Hitable testsphere1 = {};
     testsphere1.geometry = SPHERE;
-    testsphere1.shadingType = NORMALS;
+    testsphere1.shadingType = DIFFUSE;
     testsphere1.sphere = { {0, 0, -1.0}, 0.5, 1, 0, 1 };
     
     Hitable testsphere2 = {};
     testsphere2.geometry = SPHERE;
-    testsphere2.shadingType = NORMALS;
+    testsphere2.shadingType = DIFFUSE;
     testsphere2.sphere = { {0, -100.5, -1}, 100, 1, 0, 0 };
     
     // add test objects to "scene"
@@ -214,7 +234,7 @@ int main (int argc, char** argv)
                 
                 if (hitrec.distance >= 0.0f)
                 {
-                    c = c + color(&hitrec);
+                    c = c + color(&hitrec, scene, 2);
                 }
                 else
                 {
