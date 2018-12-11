@@ -22,36 +22,6 @@ global_var float viewPortHeight = 2.0f;
 global_var int resolutionX = 1920;
 global_var int resolutionY = 817;
 
-v3 cross(v3 a, v3 b)
-{
-    return {
-        a[1] * b[2] - a[2] * b[1],
-        a[2] * b[0] - a[0] * b[2],
-        a[0] * b[1] - a[1] * b[0]
-    };
-}
-
-float dot(v3 a, v3 b)
-{
-    return
-        a[0] * b[0] +
-        a[1] * b[1] +
-        a[2] * b[2];
-}
-
-float length(v3 v)
-{
-    return sqrt(
-        v[0] * v[0] +
-        v[1] * v[1] +
-        v[2] * v[2]);
-}
-
-v3 normalize(v3 a)
-{
-    return a / length(a);
-}
-
 // check if ray intersects sphere
 // see: https://www.siggraph.org/education/materials/HyperGraph/raytrace/rtinter1.htm
 bool hitSphere(v3 rayOrigin, v3 rayDirection, Sphere object, HitRecord * hitrec)
@@ -72,10 +42,8 @@ bool hitSphere(v3 rayOrigin, v3 rayDirection, Sphere object, HitRecord * hitrec)
     {
         float droot = sqrt(discriminant);
         float root1 = (-b - droot) / 2;
-        if (root1 > 0)
-            distance = root1;
-        else
-            distance = (-b + droot) / 2;
+        float root2 = (-b + droot) / 2;
+        distance = root1 < root2 ? root1 : root2;
         hasHit = true;
         hitrec->distance = distance;
         hitrec->point = rayOrigin + distance*rayDirection;
@@ -110,7 +78,7 @@ HitRecord hit(v3 rayOrigin, v3 rayDirection, Hitable* hitables, int hitableCount
         
         if (hasHit)
         {
-            if (tempHitrec.distance < closestSoFar)
+            if (tempHitrec.distance < closestSoFar && tempHitrec.distance > 0.0f)
             {
                 currentHitRec = tempHitrec;
                 closestSoFar = currentHitRec.distance;
@@ -206,11 +174,11 @@ int main (int argc, char** argv)
     testLight.g = 1.0f;
     testLight.b = 1.0f;
     
-    for (int row = 351;
+    for (int row = 0;
          row < resolutionY;
          ++row)
     {
-        for (int col = 955;
+        for (int col = 0;
              col < resolutionX;
              ++col)
         {
