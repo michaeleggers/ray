@@ -116,7 +116,7 @@ v3 color(HitRecord * hitrec, Hitable * hitables, int hitableCount)
     float distance = hitrec->distance;
     v3 point = hitrec->point;
     v3 normal = hitrec->normal;
-    v3 c = {102.0f/255.0f, 102.0f/255.0f, 255.0f/255.0f }; // NOTE(Michael): debug red color
+    v3 c = { 0.5f, 0.7f, 1.0f };
     switch (hitrec->shadingType)
     {
         case NORMALS:
