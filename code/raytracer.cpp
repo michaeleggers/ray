@@ -15,7 +15,7 @@
 // TODO(Michael): read scene from file
 
 global_var v3 cameraPos = { 0.0f, 0.0f, 2.0f };
-global_var v3 lookAt = { 0.0f, 0.0f, 0.0f }; // viewport center
+global_var v3 lookAt = { 0.0f, 0.0f, 1.9f }; // viewport center
 global_var v3 up = { 0, 1, 0 };
 global_var float viewPortWidth = 2.0f;
 global_var float viewPortHeight = 2.0f;
@@ -185,7 +185,7 @@ int main (int argc, char** argv)
             // compute ray from origin to viewport pixel
             float viewportX = pixelWidth * aspectRatio * col - aspectRatio + stepX;
             float viewportY = pixelHeight * row - 1.0f + stepY;
-            float viewportZ = 0; // // NOTE(Michael): depends on camera pos
+            float viewportZ = lookAt[2]; // // NOTE(Michael): depends on camera pos
             v3 viewPortVec = { viewportX, viewportY, viewportZ };
             //viewPortVec = cameraPos + viewPortVec;
             
@@ -194,7 +194,7 @@ int main (int argc, char** argv)
             // https://www.siggraph.org/education/materials/HyperGraph/raytrace/rtinter1.htm
             
             // compute ray from camera pos to relative viewport pixel
-            v3 originToCenter = cameraPos + viewDir;
+            v3 originToCenter = cameraPos + viewDir*cameraDistance;
             // NOTE(Michael): -viewportY, because relative viewport Y goes from top(-) to bottom(+)
             v3 centerToPixel = originToCenter + (viewportX * viewSide) + (-viewportY * viewUp);
             v3 ray = centerToPixel - cameraPos;
