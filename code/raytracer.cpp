@@ -19,8 +19,8 @@ global_var v3 lookAt = { 0.0f, 0.0f, 0.0f }; // viewport center
 global_var v3 up = { 0, 1, 0 };
 global_var float viewPortWidth = 2.0f;
 global_var float viewPortHeight = 2.0f;
-global_var int resolutionX = 1920;
-global_var int resolutionY = 817;
+global_var int resolutionX = 1920/4;
+global_var int resolutionY = 817/4;
 
 // check if ray intersects sphere
 // see: https://www.siggraph.org/education/materials/HyperGraph/raytrace/rtinter1.htm
@@ -35,7 +35,6 @@ bool hitSphere(v3 rayOrigin, v3 rayDirection, Sphere object, HitRecord * hitrec)
     float discriminant = b*b - 4*c;
     if (discriminant < 0) // TODO(Michael): how to init hitrec properly in this case?
     {
-        hasHit = false;
         hitrec->distance = -1;
     }
     else
@@ -44,53 +43,47 @@ bool hitSphere(v3 rayOrigin, v3 rayDirection, Sphere object, HitRecord * hitrec)
         float root1 = (-b - droot) / 2;
         float root2 = (-b + droot) / 2;
         distance = root1 < root2 ? root1 : root2;
-        hasHit = true;
         hitrec->distance = distance;
         hitrec->point = rayOrigin + distance*rayDirection;
         hitrec->normal = normalize(hitrec->point - object.pos);
+        if (distance > 0.001f)
+            hasHit = true;
     }
     
     return hasHit;
 }
 
-HitRecord hit(v3 rayOrigin, v3 rayDirection, Hitable* hitables, int hitableCount)
+bool hit(v3 rayOrigin, v3 rayDirection, Hitable* hitables, int hitableCount, HitRecord * hitrec)
 {
-    Hitable * hitable = hitables;
-    HitRecord currentHitRec;
-    currentHitRec.distance = 0.0f;
-    float closestSoFar = 0x7FFFFFFF;
-    float d;
     HitRecord tempHitrec;
+    float closestSoFar = 0x7FFFFFFF;
+    bool hasHit = false;
+    Hitable * hitable = hitables;
     for (int i = 0;
          i < hitableCount;
          i++)
     {
-        bool hasHit = false;
         tempHitrec.shadingType = hitable->shadingType;
         switch (hitable->geometry)
         {
             case SPHERE:
             {
-                hasHit = hitSphere(rayOrigin, rayDirection, hitable->sphere, &tempHitrec);
+                if (hitSphere(rayOrigin, rayDirection, hitable->sphere, &tempHitrec))
+                {
+                    if (tempHitrec.distance < closestSoFar)
+                    {
+                        *hitrec = tempHitrec;
+                        closestSoFar = hitrec->distance;
+                        hasHit = true;
+                    }
+                }
             }
             break;
-        }
-        
-        if (hasHit)
-        {
-            if (tempHitrec.distance < closestSoFar && tempHitrec.distance > 0.0f)
-            {
-                currentHitRec = tempHitrec;
-                closestSoFar = currentHitRec.distance;
-            }
         }
         hitable++;
     }
     
-    //currentHitRec.point = currentHitRec.point + 0.01f * currentHitRec.normal;
-    currentHitRec.rayOrigin = rayOrigin;
-    currentHitRec.rayDirection = rayDirection;
-    return currentHitRec;
+    return hasHit;
 }
 
 v3 diffuse(Light l, Sphere s, v3 point)
@@ -113,12 +106,36 @@ v3 colorizeNormal(Sphere s, v3 point)
     return 0.5f * foo;
 }
 
-v3 color(HitRecord * hitrec, Hitable * hitables, int hitableCount)
+v3 color(v3 rayOrigin, v3 rayDirection, Hitable * hitables, int hitableCount)
 {
-    float distance = hitrec->distance;
-    v3 point = hitrec->point;
-    v3 normal = hitrec->normal;
-    v3 c = { 0.0f, 0.0f, 0.0f };
+    HitRecord hitrec;
+    bool hasHit = hit(rayOrigin, rayDirection, hitables, hitableCount, &hitrec);
+    v3 point = hitrec.point;
+    v3 normal = hitrec.normal;
+    v3 one = {1,1,1};
+    if (hasHit)
+    {
+        v3 p;
+        v3 test;
+        do 
+        {
+            test = { 
+                rand()/float(RAND_MAX),
+                rand()/float(RAND_MAX),
+                rand()/float(RAND_MAX) };
+            p = 2.0f*test - one;
+        } while(dot(p, p) >= 1.0f);
+        v3 target = point + normal + p;
+        return 0.5f*color(point, normalize(target-point), hitables, hitableCount);
+    }
+    else
+    {
+        float t = 0.5*(rayDirection[1] + 1.0f);
+        v3 blue = { 0.5f, 0.7f, 1.0f };
+        return ((1.0f - t)*one+t*blue);
+    }
+    
+    /*
     switch (hitrec->shadingType)
     {
         case NORMALS:
@@ -139,17 +156,17 @@ v3 color(HitRecord * hitrec, Hitable * hitables, int hitableCount)
                     rand()/float(RAND_MAX),
                     rand()/float(RAND_MAX),
                     rand()/float(RAND_MAX) };
-                p = 2.0f*test - one;
-            } while(length(p) >= 1.0f);
+                p = (2.0f*test) - one;
+            } while(dot(p, p) >= 1.0f);
             v3 target = point + normal + p;
             HitRecord nextHitrec = hit(point, normalize(target - point), hitables, hitableCount);
-            if (nextHitrec.distance >= 0.001f)
+            if (nextHitrec.distance >= 0.0f)
                 return 0.5f*color(&nextHitrec, hitables, hitableCount);
             else
             {
                 float t = 0.5*(hitrec->rayDirection[1] + 1.0f);
                 v3 blue = { 0.5f, 0.7f, 1.0f };
-                return (1.0f - t)*one+t*blue;
+                return 0.5f*((1.0f - t)*one+t*blue);
                 //c = {1,0,0};
             }
         }
@@ -164,6 +181,7 @@ v3 color(HitRecord * hitrec, Hitable * hitables, int hitableCount)
         }
     }
     return c;
+    */
 }
 
 int main (int argc, char** argv)
@@ -193,7 +211,7 @@ int main (int argc, char** argv)
     // test objects
     Hitable testsphere1 = {};
     testsphere1.geometry = SPHERE;
-    testsphere1.shadingType = NORMALS;
+    testsphere1.shadingType = DIFFUSE;
     testsphere1.sphere = { {0, 0, -1.0}, 0.5, 1, 0, 1 };
     
     Hitable testsphere2 = {};
@@ -202,7 +220,7 @@ int main (int argc, char** argv)
     testsphere2.sphere = { {0, -100.5, -1}, 100, 1, 0, 0 };
     
     // add test objects to "scene"
-    Hitable scene[2] = { testsphere1, testsphere2 };
+    Hitable scene[] = { testsphere1, testsphere2 };
     
     // test lights
     Light testLight;
@@ -246,12 +264,12 @@ int main (int argc, char** argv)
                 v3 ray = centerToPixel - cameraPos;
                 ray = normalize(ray);
                 
+                int hitableCount = sizeof(scene)/sizeof(scene[0]);
                 // test intersection with objects
-                HitRecord hitrec = hit(cameraPos, ray, scene, 2);
-                
-                c = c + color(&hitrec, scene, 2);
+                c = c + color(cameraPos, ray, scene, hitableCount);
             }
             c = c /  float(sampleCount);
+            c = { sqrt(c[0]), sqrt(c[1]), sqrt(c[2]) };
             uint8_t ir = uint8_t(255.99f * c[0]);
             uint8_t ig = uint8_t(255.99f * c[1]);
             uint8_t ib = uint8_t(255.99f * c[2]);

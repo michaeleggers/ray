@@ -138,8 +138,8 @@ struct HitRecord
 
 
 // function prototypes
-HitRecord hit(v3 rayOrigin, v3 rayDirection, Hitable* hitables, int hitableCount);
-v3 color(HitRecord * hitrec, Hitable * hitables, int hitableCount);
+bool hit(v3 rayOrigin, v3 rayDirection, Hitable* hitables, int hitableCount, HitRecord * hitrec);
+v3 color(v3 rayOrigin, v3 rayDirection, Hitable * hitables, int hitableCount);
 float primaryRaySphere(v3 rayOrigin, v3 rayDirection, Sphere object);
 
 #endif RAYTRACER_H
