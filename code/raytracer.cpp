@@ -57,14 +57,14 @@ HitRecord hit(v3 rayOrigin, v3 rayDirection, Hitable* hitables, int hitableCount
 {
     Hitable * hitable = hitables;
     HitRecord currentHitRec;
-    currentHitRec.distance = -1.0f;
+    currentHitRec.distance = 0.0f;
     float closestSoFar = 0x7FFFFFFF;
     float d;
+    HitRecord tempHitrec;
     for (int i = 0;
          i < hitableCount;
          i++)
     {
-        HitRecord tempHitrec;
         bool hasHit = false;
         tempHitrec.shadingType = hitable->shadingType;
         switch (hitable->geometry)
@@ -87,7 +87,9 @@ HitRecord hit(v3 rayOrigin, v3 rayDirection, Hitable* hitables, int hitableCount
         hitable++;
     }
     
-    
+    //currentHitRec.point = currentHitRec.point + 0.01f * currentHitRec.normal;
+    currentHitRec.rayOrigin = rayOrigin;
+    currentHitRec.rayDirection = rayDirection;
     return currentHitRec;
 }
 
@@ -116,7 +118,7 @@ v3 color(HitRecord * hitrec, Hitable * hitables, int hitableCount)
     float distance = hitrec->distance;
     v3 point = hitrec->point;
     v3 normal = hitrec->normal;
-    v3 c = { 0.5f, 0.7f, 1.0f };
+    v3 c = { 0.0f, 0.0f, 0.0f };
     switch (hitrec->shadingType)
     {
         case NORMALS:
@@ -140,11 +142,26 @@ v3 color(HitRecord * hitrec, Hitable * hitables, int hitableCount)
                 p = 2.0f*test - one;
             } while(length(p) >= 1.0f);
             v3 target = point + normal + p;
-            HitRecord nextHitrec = hit(point, target - point, hitables, hitableCount);
-            if (nextHitrec.distance >= 0.0f)
-                c = 0.5f*color(&nextHitrec, hitables, hitableCount);
+            HitRecord nextHitrec = hit(point, normalize(target - point), hitables, hitableCount);
+            if (nextHitrec.distance >= 0.001f)
+                return 0.5f*color(&nextHitrec, hitables, hitableCount);
+            else
+            {
+                float t = 0.5*(hitrec->rayDirection[1] + 1.0f);
+                v3 blue = { 0.5f, 0.7f, 1.0f };
+                return (1.0f - t)*one+t*blue;
+                //c = {1,0,0};
+            }
         }
         break;
+        
+        default:
+        {
+            v3 one = {1,1,1};
+            float t = 0.5*(hitrec->rayDirection[1] + 1.0f);
+            v3 blue = { 0.5f, 0.7f, 1.0f };
+            return (1.0f - t)*one+t*blue;
+        }
     }
     return c;
 }
@@ -176,7 +193,7 @@ int main (int argc, char** argv)
     // test objects
     Hitable testsphere1 = {};
     testsphere1.geometry = SPHERE;
-    testsphere1.shadingType = DIFFUSE;
+    testsphere1.shadingType = NORMALS;
     testsphere1.sphere = { {0, 0, -1.0}, 0.5, 1, 0, 1 };
     
     Hitable testsphere2 = {};
@@ -203,7 +220,7 @@ int main (int argc, char** argv)
              ++col)
         {
             
-            int sampleCount = 10;
+            int sampleCount = 500;
             v3 c;
             for (int i = 0;
                  i < sampleCount;
@@ -232,22 +249,12 @@ int main (int argc, char** argv)
                 // test intersection with objects
                 HitRecord hitrec = hit(cameraPos, ray, scene, 2);
                 
-                if (hitrec.distance >= 0.0f)
-                {
-                    c = c + color(&hitrec, scene, 2);
-                }
-                else
-                {
-                    v3 white = { 1.0f, 1.0f, 1.0f };
-                    v3 lightBlue = { 0.5f, 0.7f, 1.0f };
-                    float t = 0.5f*(ray[1] + 1.0f);
-                    c = c + ( (1.0 - t)*white + t*lightBlue);
-                }
+                c = c + color(&hitrec, scene, 2);
             }
             c = c /  float(sampleCount);
-            uint8_t ir = 255.99f * c[0];
-            uint8_t ig = 255.99f * c[1];
-            uint8_t ib = 255.99f * c[2];
+            uint8_t ir = uint8_t(255.99f * c[0]);
+            uint8_t ig = uint8_t(255.99f * c[1]);
+            uint8_t ib = uint8_t(255.99f * c[2]);
             std::string rgb = std::to_string(ir) + " " + std::to_string(ig) + " " + std::to_string(ib) + " ";
             fprintf(ppmFile, rgb.c_str());
         }

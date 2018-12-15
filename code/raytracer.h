@@ -131,6 +131,8 @@ struct HitRecord
     float distance;
     v3 point;
     v3 normal;
+    v3 rayOrigin;
+    v3 rayDirection;
     //Shading_t shadingType;
 };
 
