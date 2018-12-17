@@ -14,7 +14,7 @@
 // TODO(Michael): write ppm data into buffer and write to file at the end.
 // TODO(Michael): read scene from file
 
-global_var v3 cameraPos = { 0.0f, 0.0f, 2.0f };
+global_var v3 cameraPos = { 0.0f, 1.0f, 2.0f };
 global_var v3 lookAt = { 0.0f, 0.0f, 0.0f }; // viewport center
 global_var v3 up = { 0, 1, 0 };
 global_var float viewPortWidth = 2.0f;
@@ -157,7 +157,7 @@ bool scatterMetal(HitRecord * hitrec, v3 rayOrigin, v3 rayDirection, v3 * attenu
     v3 point = hitrec->point;
     v3 reflectDirection = (-2*dot(rayDirection, normal)*normal + rayDirection);
     *scatterDirection = normalize(reflectDirection);
-    *attenuation = { 0.8f, 0.8f, 0.8f };
+    *attenuation = { 0.7f, 0.7f, 0.7f };
     return (dot(reflectDirection, normal) > 0);
 }
 
@@ -167,16 +167,16 @@ v3 color(v3 rayOrigin, v3 rayDirection, Hitable * hitables, int hitableCount, in
     bool hasHit = hit(rayOrigin, rayDirection, hitables, hitableCount, &hitrec);
     if (hasHit)
     {
-        switch (hitrec.shadingType)
+        if (depth > 0)
         {
-            if (depth < 100)
+            switch (hitrec.shadingType)
             {
                 case DIFFUSE:
                 {
                     v3 scatterDirection;
                     v3 attenuation;
                     scatterLambertian(&hitrec, &attenuation, &scatterDirection);
-                    return attenuation*color(hitrec.point, scatterDirection, hitables, hitableCount, depth+1);
+                    return attenuation*color(hitrec.point, scatterDirection, hitables, hitableCount, depth-1);
                 }
                 break;
                 
@@ -185,7 +185,7 @@ v3 color(v3 rayOrigin, v3 rayDirection, Hitable * hitables, int hitableCount, in
                     v3 scatterDirection;
                     v3 attenuation;
                     if (scatterMetal(&hitrec, rayOrigin, rayDirection, &attenuation, &scatterDirection))
-                        return attenuation*color(hitrec.point, scatterDirection, hitables, hitableCount, depth+1);
+                        return attenuation*color(hitrec.point, scatterDirection, hitables, hitableCount, depth-1);
                     else
                         return { 0, 0, 0 };
                 }
@@ -196,8 +196,7 @@ v3 color(v3 rayOrigin, v3 rayDirection, Hitable * hitables, int hitableCount, in
                     v3 scatterDirection;
                     v3 attenuation;
                     scatterLambertianColorizeNormals(&hitrec, &attenuation, &scatterDirection);
-                    return attenuation*color(hitrec.point, scatterDirection, hitables, hitableCount, depth+1);
-                    //return attenuation;
+                    return attenuation*color(hitrec.point, scatterDirection, hitables, hitableCount, depth-1);
                 }
                 break;
                 
@@ -206,18 +205,19 @@ v3 color(v3 rayOrigin, v3 rayDirection, Hitable * hitables, int hitableCount, in
                     return { 1, 0, 0 };
                 }
             }
-            else
-            {
-                return { 0, 0, 0 };
-            }
+        }
+        else
+        {
+            return { 1, 0, 0 };
         }
     }
     else
     {
         v3 one = {1,1,1};
         v3 blue = { 0.5f, 0.7f, 1.0f };
+        v3 orange = { 1.0f, float(204)/float(255), float(153)/float(255) };
         float t = 0.5*(rayDirection[1] + 1.0f);
-        return ((1.0f - t)*one+t*blue);
+        return ((1.0f - t)*one+t*orange);
     }
     
     /*
@@ -301,7 +301,7 @@ int main (int argc, char** argv)
     
     Hitable testsphere3 = {};
     testsphere3.geometry = SPHERE;
-    testsphere3.shadingType = NORMALS;
+    testsphere3.shadingType = DIFFUSE;
     testsphere3.sphere = { {1, 1, -1.0}, 0.5, 1, 0, 1 };
     
     Hitable testsphere2 = {};
@@ -328,7 +328,7 @@ int main (int argc, char** argv)
              ++col)
         {
             
-            int sampleCount = 50;
+            int sampleCount = 1;
             v3 c;
             for (int i = 0;
                  i < sampleCount;
@@ -356,7 +356,7 @@ int main (int argc, char** argv)
                 
                 int hitableCount = sizeof(scene)/sizeof(scene[0]);
                 // test intersection with objects
-                c = c + color(cameraPos, ray, scene, hitableCount, 0);
+                c = c + color(cameraPos, ray, scene, hitableCount, 1);
             }
             c = c /  float(sampleCount);
             //c = { sqrt(c[0]), sqrt(c[1]), sqrt(c[2]) };
