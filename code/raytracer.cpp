@@ -123,7 +123,7 @@ bool scatterLambertian(HitRecord * hitrec, v3 * attenuation, v3 * scatterDirecti
         p = 2.0f*test - one;
     } while(dot(p, p) >= 1.0f);
     v3 target = point + normal + p;
-    *scatterDirection = normalize(target);
+    *scatterDirection = normalize(target-point);
     return true;
 }
 
