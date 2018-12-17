@@ -60,6 +60,11 @@ v3 operator*(float scalar, v3 v)
     };
 }
 
+v3 operator*(v3 & lhs, v3 & rhs)
+{
+    return { lhs[0]*rhs[0], lhs[1]*rhs[1], lhs[2]*rhs[2] };
+}
+
 v3 cross(v3 a, v3 b)
 {
     return {
@@ -131,15 +136,12 @@ struct HitRecord
     float distance;
     v3 point;
     v3 normal;
-    v3 rayOrigin;
-    v3 rayDirection;
-    //Shading_t shadingType;
 };
 
 
 // function prototypes
 bool hit(v3 rayOrigin, v3 rayDirection, Hitable* hitables, int hitableCount, HitRecord * hitrec);
-v3 color(v3 rayOrigin, v3 rayDirection, Hitable * hitables, int hitableCount);
+v3 color(v3 rayOrigin, v3 rayDirection, Hitable * hitables, int hitableCount, int depth);
 float primaryRaySphere(v3 rayOrigin, v3 rayDirection, Sphere object);
 
 #endif RAYTRACER_H

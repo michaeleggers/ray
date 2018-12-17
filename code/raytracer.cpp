@@ -19,8 +19,8 @@ global_var v3 lookAt = { 0.0f, 0.0f, 0.0f }; // viewport center
 global_var v3 up = { 0, 1, 0 };
 global_var float viewPortWidth = 2.0f;
 global_var float viewPortHeight = 2.0f;
-global_var int resolutionX = 1920/4;
-global_var int resolutionY = 817/4;
+global_var int resolutionX = 1920/2;
+global_var int resolutionY = 817/2;
 
 // check if ray intersects sphere
 // see: https://www.siggraph.org/education/materials/HyperGraph/raytrace/rtinter1.htm
@@ -106,79 +106,102 @@ v3 colorizeNormal(Sphere s, v3 point)
     return 0.5f * foo;
 }
 
-v3 color(v3 rayOrigin, v3 rayDirection, Hitable * hitables, int hitableCount)
+bool scatterLambertian(HitRecord * hitrec, v3 * attenuation, v3 * scatterDirection)
+{
+    *attenuation = { 0.5, 0.5, 0.5 };
+    v3 point = hitrec->point;
+    v3 normal = hitrec->normal;
+    v3 one = {1,1,1};
+    v3 p;
+    v3 test;
+    do 
+    {
+        test = { 
+            rand()/float(RAND_MAX),
+            rand()/float(RAND_MAX),
+            rand()/float(RAND_MAX) };
+        p = 2.0f*test - one;
+    } while(dot(p, p) >= 1.0f);
+    v3 target = point + normal + p;
+    *scatterDirection = normalize(target);
+    return true;
+}
+
+v3 color(v3 rayOrigin, v3 rayDirection, Hitable * hitables, int hitableCount, int depth)
 {
     HitRecord hitrec;
     bool hasHit = hit(rayOrigin, rayDirection, hitables, hitableCount, &hitrec);
-    v3 point = hitrec.point;
-    v3 normal = hitrec.normal;
-    v3 one = {1,1,1};
     if (hasHit)
     {
-        v3 p;
-        v3 test;
-        do 
+        switch (hitrec.shadingType)
         {
-            test = { 
-                rand()/float(RAND_MAX),
-                rand()/float(RAND_MAX),
-                rand()/float(RAND_MAX) };
-            p = 2.0f*test - one;
-        } while(dot(p, p) >= 1.0f);
-        v3 target = point + normal + p;
-        return 0.5f*color(point, normalize(target-point), hitables, hitableCount);
+            case DIFFUSE:
+            {
+                v3 scatterDirection;
+                v3 attenuation;
+                scatterLambertian(&hitrec, &attenuation, &scatterDirection);
+                return attenuation*color(hitrec.point, scatterDirection, hitables, hitableCount, depth+1);
+            }
+            break;
+            
+            default:
+            {
+                return { 1, 0, 0 };
+            }
+        }
     }
     else
     {
-        float t = 0.5*(rayDirection[1] + 1.0f);
+        v3 one = {1,1,1};
         v3 blue = { 0.5f, 0.7f, 1.0f };
+        float t = 0.5*(rayDirection[1] + 1.0f);
         return ((1.0f - t)*one+t*blue);
     }
     
     /*
     switch (hitrec->shadingType)
     {
-        case NORMALS:
-        {
-            c = { normal[0] + 1, normal[1] + 1, normal[2] + 1 };
-            c = 0.5f*c;
-        }
-        break;
-        
-        case DIFFUSE:
-        {
-            v3 p;
-            v3 one = {1,1,1};
-            v3 test;
-            do 
-            {
-                test = { 
-                    rand()/float(RAND_MAX),
-                    rand()/float(RAND_MAX),
-                    rand()/float(RAND_MAX) };
-                p = (2.0f*test) - one;
-            } while(dot(p, p) >= 1.0f);
-            v3 target = point + normal + p;
-            HitRecord nextHitrec = hit(point, normalize(target - point), hitables, hitableCount);
-            if (nextHitrec.distance >= 0.0f)
-                return 0.5f*color(&nextHitrec, hitables, hitableCount);
-            else
-            {
-                float t = 0.5*(hitrec->rayDirection[1] + 1.0f);
-                v3 blue = { 0.5f, 0.7f, 1.0f };
-                return 0.5f*((1.0f - t)*one+t*blue);
-                //c = {1,0,0};
-            }
-        }
-        break;
-        
-        default:
-        {
-            v3 one = {1,1,1};
-            float t = 0.5*(hitrec->rayDirection[1] + 1.0f);
-            v3 blue = { 0.5f, 0.7f, 1.0f };
-            return (1.0f - t)*one+t*blue;
-        }
+    case NORMALS:
+    {
+    c = { normal[0] + 1, normal[1] + 1, normal[2] + 1 };
+    c = 0.5f*c;
+    }
+    break;
+    
+    case DIFFUSE:
+    {
+    v3 p;
+    v3 one = {1,1,1};
+    v3 test;
+    do 
+    {
+    test = { 
+    rand()/float(RAND_MAX),
+    rand()/float(RAND_MAX),
+    rand()/float(RAND_MAX) };
+    p = (2.0f*test) - one;
+    } while(dot(p, p) >= 1.0f);
+    v3 target = point + normal + p;
+    HitRecord nextHitrec = hit(point, normalize(target - point), hitables, hitableCount);
+    if (nextHitrec.distance >= 0.0f)
+    return 0.5f*color(&nextHitrec, hitables, hitableCount);
+    else
+    {
+    float t = 0.5*(hitrec->rayDirection[1] + 1.0f);
+    v3 blue = { 0.5f, 0.7f, 1.0f };
+    return 0.5f*((1.0f - t)*one+t*blue);
+    //c = {1,0,0};
+    }
+    }
+    break;
+    
+    default:
+    {
+    v3 one = {1,1,1};
+    float t = 0.5*(hitrec->rayDirection[1] + 1.0f);
+    v3 blue = { 0.5f, 0.7f, 1.0f };
+    return (1.0f - t)*one+t*blue;
+    }
     }
     return c;
     */
@@ -238,7 +261,7 @@ int main (int argc, char** argv)
              ++col)
         {
             
-            int sampleCount = 500;
+            int sampleCount = 100;
             v3 c;
             for (int i = 0;
                  i < sampleCount;
@@ -266,7 +289,7 @@ int main (int argc, char** argv)
                 
                 int hitableCount = sizeof(scene)/sizeof(scene[0]);
                 // test intersection with objects
-                c = c + color(cameraPos, ray, scene, hitableCount);
+                c = c + color(cameraPos, ray, scene, hitableCount, 0);
             }
             c = c /  float(sampleCount);
             c = { sqrt(c[0]), sqrt(c[1]), sqrt(c[2]) };
