@@ -106,6 +106,30 @@ v3 colorizeNormal(Sphere s, v3 point)
     return 0.5f * foo;
 }
 
+// TODO(Michael): duplicate code
+bool scatterLambertianColorizeNormals(HitRecord * hitrec, v3 * attenuation, v3 * scatterDirection)
+{
+    
+    v3 point = hitrec->point;
+    v3 normal = hitrec->normal;
+    *attenuation = { normal[0]+1, normal[1]+1 , normal[2]+1 };
+    *attenuation = 0.5**attenuation; // NOTE(Michael): hihihihihi
+    v3 one = {1,1,1};
+    v3 p;
+    v3 test;
+    do 
+    {
+        test = { 
+            rand()/float(RAND_MAX),
+            rand()/float(RAND_MAX),
+            rand()/float(RAND_MAX) };
+        p = 2.0f*test - one;
+    } while(dot(p, p) >= 1.0f);
+    v3 target = point + normal + p;
+    *scatterDirection = normalize(target-point);
+    return true;
+}
+
 bool scatterLambertian(HitRecord * hitrec, v3 * attenuation, v3 * scatterDirection)
 {
     *attenuation = { 0.5, 0.5, 0.5 };
@@ -127,6 +151,11 @@ bool scatterLambertian(HitRecord * hitrec, v3 * attenuation, v3 * scatterDirecti
     return true;
 }
 
+bool scatterMetal(HitRecord * hitrec, v3 rayOrigin, v3 rayDirection, v3 * scatterDirection)
+{
+    return true;
+}
+
 v3 color(v3 rayOrigin, v3 rayDirection, Hitable * hitables, int hitableCount, int depth)
 {
     HitRecord hitrec;
@@ -141,6 +170,25 @@ v3 color(v3 rayOrigin, v3 rayDirection, Hitable * hitables, int hitableCount, in
                 v3 attenuation;
                 scatterLambertian(&hitrec, &attenuation, &scatterDirection);
                 return attenuation*color(hitrec.point, scatterDirection, hitables, hitableCount, depth+1);
+            }
+            break;
+            
+            case METAL:
+            {
+                v3 scatterDirection;
+                v3 attenuation;
+                attenuation*scatterMetal(&hitrec, rayOrigin, rayDirection, &scatterDirection);
+                return attenuation*color(hitrec.point, scatterDirection, hitables, hitableCount, depth+1);
+            }
+            break;
+            
+            case NORMALS:
+            {
+                v3 scatterDirection;
+                v3 attenuation;
+                scatterLambertianColorizeNormals(&hitrec, &attenuation, &scatterDirection);
+                return attenuation*color(hitrec.point, scatterDirection, hitables, hitableCount, depth+1);
+                //return attenuation;
             }
             break;
             
@@ -234,7 +282,7 @@ int main (int argc, char** argv)
     // test objects
     Hitable testsphere1 = {};
     testsphere1.geometry = SPHERE;
-    testsphere1.shadingType = DIFFUSE;
+    testsphere1.shadingType = NORMALS;
     testsphere1.sphere = { {0, 0, -1.0}, 0.5, 1, 0, 1 };
     
     Hitable testsphere2 = {};

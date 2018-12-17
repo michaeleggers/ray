@@ -98,6 +98,7 @@ v3 normalize(v3 a)
 enum Shading_t
 {
     DIFFUSE,
+    METAL,
     NORMALS
 };
 
