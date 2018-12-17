@@ -19,8 +19,8 @@ global_var v3 lookAt = { 0.0f, 0.0f, 0.0f }; // viewport center
 global_var v3 up = { 0, 1, 0 };
 global_var float viewPortWidth = 2.0f;
 global_var float viewPortHeight = 2.0f;
-global_var int resolutionX = 1920/2;
-global_var int resolutionY = 817/2;
+global_var int resolutionX = 1920;
+global_var int resolutionY = 817;
 
 // check if ray intersects sphere
 // see: https://www.siggraph.org/education/materials/HyperGraph/raytrace/rtinter1.htm
@@ -151,9 +151,14 @@ bool scatterLambertian(HitRecord * hitrec, v3 * attenuation, v3 * scatterDirecti
     return true;
 }
 
-bool scatterMetal(HitRecord * hitrec, v3 rayOrigin, v3 rayDirection, v3 * scatterDirection)
+bool scatterMetal(HitRecord * hitrec, v3 rayOrigin, v3 rayDirection, v3 * attenuation, v3 * scatterDirection)
 {
-    return true;
+    v3 normal = hitrec->normal;
+    v3 point = hitrec->point;
+    v3 reflectDirection = (-2*dot(rayDirection, normal)*normal + rayDirection);
+    *scatterDirection = normalize(reflectDirection);
+    *attenuation = { 0.8f, 0.8f, 0.8f };
+    return (dot(reflectDirection, normal) > 0);
 }
 
 v3 color(v3 rayOrigin, v3 rayDirection, Hitable * hitables, int hitableCount, int depth)
@@ -164,37 +169,46 @@ v3 color(v3 rayOrigin, v3 rayDirection, Hitable * hitables, int hitableCount, in
     {
         switch (hitrec.shadingType)
         {
-            case DIFFUSE:
+            if (depth < 100)
             {
-                v3 scatterDirection;
-                v3 attenuation;
-                scatterLambertian(&hitrec, &attenuation, &scatterDirection);
-                return attenuation*color(hitrec.point, scatterDirection, hitables, hitableCount, depth+1);
+                case DIFFUSE:
+                {
+                    v3 scatterDirection;
+                    v3 attenuation;
+                    scatterLambertian(&hitrec, &attenuation, &scatterDirection);
+                    return attenuation*color(hitrec.point, scatterDirection, hitables, hitableCount, depth+1);
+                }
+                break;
+                
+                case METAL:
+                {
+                    v3 scatterDirection;
+                    v3 attenuation;
+                    if (scatterMetal(&hitrec, rayOrigin, rayDirection, &attenuation, &scatterDirection))
+                        return attenuation*color(hitrec.point, scatterDirection, hitables, hitableCount, depth+1);
+                    else
+                        return { 0, 0, 0 };
+                }
+                break;
+                
+                case NORMALS:
+                {
+                    v3 scatterDirection;
+                    v3 attenuation;
+                    scatterLambertianColorizeNormals(&hitrec, &attenuation, &scatterDirection);
+                    return attenuation*color(hitrec.point, scatterDirection, hitables, hitableCount, depth+1);
+                    //return attenuation;
+                }
+                break;
+                
+                default:
+                {
+                    return { 1, 0, 0 };
+                }
             }
-            break;
-            
-            case METAL:
+            else
             {
-                v3 scatterDirection;
-                v3 attenuation;
-                attenuation*scatterMetal(&hitrec, rayOrigin, rayDirection, &scatterDirection);
-                return attenuation*color(hitrec.point, scatterDirection, hitables, hitableCount, depth+1);
-            }
-            break;
-            
-            case NORMALS:
-            {
-                v3 scatterDirection;
-                v3 attenuation;
-                scatterLambertianColorizeNormals(&hitrec, &attenuation, &scatterDirection);
-                return attenuation*color(hitrec.point, scatterDirection, hitables, hitableCount, depth+1);
-                //return attenuation;
-            }
-            break;
-            
-            default:
-            {
-                return { 1, 0, 0 };
+                return { 0, 0, 0 };
             }
         }
     }
@@ -282,16 +296,21 @@ int main (int argc, char** argv)
     // test objects
     Hitable testsphere1 = {};
     testsphere1.geometry = SPHERE;
-    testsphere1.shadingType = NORMALS;
+    testsphere1.shadingType = METAL;
     testsphere1.sphere = { {0, 0, -1.0}, 0.5, 1, 0, 1 };
+    
+    Hitable testsphere3 = {};
+    testsphere3.geometry = SPHERE;
+    testsphere3.shadingType = NORMALS;
+    testsphere3.sphere = { {1, 1, -1.0}, 0.5, 1, 0, 1 };
     
     Hitable testsphere2 = {};
     testsphere2.geometry = SPHERE;
-    testsphere2.shadingType = DIFFUSE;
+    testsphere2.shadingType = METAL;
     testsphere2.sphere = { {0, -100.5, -1}, 100, 1, 0, 0 };
     
     // add test objects to "scene"
-    Hitable scene[] = { testsphere1, testsphere2 };
+    Hitable scene[] = { testsphere1, testsphere2, testsphere3 };
     
     // test lights
     Light testLight;
@@ -309,7 +328,7 @@ int main (int argc, char** argv)
              ++col)
         {
             
-            int sampleCount = 100;
+            int sampleCount = 50;
             v3 c;
             for (int i = 0;
                  i < sampleCount;
@@ -340,7 +359,7 @@ int main (int argc, char** argv)
                 c = c + color(cameraPos, ray, scene, hitableCount, 0);
             }
             c = c /  float(sampleCount);
-            c = { sqrt(c[0]), sqrt(c[1]), sqrt(c[2]) };
+            //c = { sqrt(c[0]), sqrt(c[1]), sqrt(c[2]) };
             uint8_t ir = uint8_t(255.99f * c[0]);
             uint8_t ig = uint8_t(255.99f * c[1]);
             uint8_t ib = uint8_t(255.99f * c[2]);
