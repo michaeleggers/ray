@@ -14,7 +14,7 @@
 // TODO(Michael): write ppm data into buffer and write to file at the end.
 // TODO(Michael): read scene from file
 
-global_var v3 cameraPos = { 0.0f, 1.0f, 2.0f };
+global_var v3 cameraPos = { 0.0f, 0.0f, 2.0f };
 global_var v3 lookAt = { 0.0f, 0.0f, 0.0f }; // viewport center
 global_var v3 up = { 0, 1, 0 };
 global_var float viewPortWidth = 2.0f;
@@ -63,7 +63,7 @@ bool hit(v3 rayOrigin, v3 rayDirection, Hitable* hitables, int hitableCount, Hit
          i < hitableCount;
          i++)
     {
-        tempHitrec.shadingType = hitable->shadingType;
+        tempHitrec.material = hitable->material;
         switch (hitable->geometry)
         {
             case SPHERE:
@@ -132,7 +132,7 @@ bool scatterLambertianColorizeNormals(HitRecord * hitrec, v3 * attenuation, v3 *
 
 bool scatterLambertian(HitRecord * hitrec, v3 * attenuation, v3 * scatterDirection)
 {
-    *attenuation = { 0.5, 0.5, 0.5 };
+    *attenuation = hitrec->material->attenuation;
     v3 point = hitrec->point;
     v3 normal = hitrec->normal;
     v3 one = {1,1,1};
@@ -157,7 +157,7 @@ bool scatterMetal(HitRecord * hitrec, v3 rayOrigin, v3 rayDirection, v3 * attenu
     v3 point = hitrec->point;
     v3 reflectDirection = (-2*dot(rayDirection, normal)*normal + rayDirection);
     *scatterDirection = normalize(reflectDirection);
-    *attenuation = { 0.7f, 0.7f, 0.7f };
+    *attenuation = hitrec->material->attenuation;
     return (dot(reflectDirection, normal) > 0);
 }
 
@@ -169,9 +169,9 @@ v3 color(v3 rayOrigin, v3 rayDirection, Hitable * hitables, int hitableCount, in
     {
         if (depth > 0)
         {
-            switch (hitrec.shadingType)
+            switch (hitrec.material->shadingType)
             {
-                case DIFFUSE:
+                case LAMBERT:
                 {
                     v3 scatterDirection;
                     v3 attenuation;
@@ -208,7 +208,7 @@ v3 color(v3 rayOrigin, v3 rayDirection, Hitable * hitables, int hitableCount, in
         }
         else
         {
-            return { 1, 0, 0 };
+            return { 0, 0, 0 };
         }
     }
     else
@@ -217,7 +217,7 @@ v3 color(v3 rayOrigin, v3 rayDirection, Hitable * hitables, int hitableCount, in
         v3 blue = { 0.5f, 0.7f, 1.0f };
         v3 orange = { 1.0f, float(204)/float(255), float(153)/float(255) };
         float t = 0.5*(rayDirection[1] + 1.0f);
-        return ((1.0f - t)*one+t*orange);
+        return ((1.0f - t)*one+t*blue);
     }
     
     /*
@@ -293,24 +293,35 @@ int main (int argc, char** argv)
     float stepX = pixelWidth / 2.0f;
     float stepY = pixelHeight / 2.0f;
     
+    // materials
+    Material lambert1 = { LAMBERT, {0.8f, 0.3f, 0.3f} };
+    Material lambert2 = { LAMBERT, {0.8f, 0.8f, 0.0f} };
+    Material metal1 = { METAL, {0.8f, 0.6f, 0.2f} };
+    Material metal2 = { METAL, {0.8f, 0.8f, 0.8f} };
+    
     // test objects
     Hitable testsphere1 = {};
     testsphere1.geometry = SPHERE;
-    testsphere1.shadingType = METAL;
+    testsphere1.material = &lambert1;
     testsphere1.sphere = { {0, 0, -1.0}, 0.5, 1, 0, 1 };
-    
-    Hitable testsphere3 = {};
-    testsphere3.geometry = SPHERE;
-    testsphere3.shadingType = DIFFUSE;
-    testsphere3.sphere = { {1, 1, -1.0}, 0.5, 1, 0, 1 };
     
     Hitable testsphere2 = {};
     testsphere2.geometry = SPHERE;
-    testsphere2.shadingType = METAL;
-    testsphere2.sphere = { {0, -100.5, -1}, 100, 1, 0, 0 };
+    testsphere2.material = &lambert2;
+    testsphere2.sphere = { {0, -100.5, -1.0}, 100.0, 1, 0, 1 };
+    
+    Hitable testsphere3 = {};
+    testsphere3.geometry = SPHERE;
+    testsphere3.material = &metal1;
+    testsphere3.sphere = { {1, 0, -1}, 0.5, 1, 0, 0 };
+    
+    Hitable testsphere4 = {};
+    testsphere4.geometry = SPHERE;
+    testsphere4.material = &metal2;
+    testsphere4.sphere = { {-1, 0, -1}, 0.5, 1, 0, 1 };
     
     // add test objects to "scene"
-    Hitable scene[] = { testsphere1, testsphere2, testsphere3 };
+    Hitable scene[] = { testsphere1, testsphere2, testsphere3, testsphere4 };
     
     // test lights
     Light testLight;
@@ -328,7 +339,7 @@ int main (int argc, char** argv)
              ++col)
         {
             
-            int sampleCount = 1;
+            int sampleCount = 100;
             v3 c;
             for (int i = 0;
                  i < sampleCount;
@@ -356,10 +367,10 @@ int main (int argc, char** argv)
                 
                 int hitableCount = sizeof(scene)/sizeof(scene[0]);
                 // test intersection with objects
-                c = c + color(cameraPos, ray, scene, hitableCount, 1);
+                c = c + color(cameraPos, ray, scene, hitableCount, 50);
             }
             c = c /  float(sampleCount);
-            //c = { sqrt(c[0]), sqrt(c[1]), sqrt(c[2]) };
+            c = { sqrt(c[0]), sqrt(c[1]), sqrt(c[2]) };
             uint8_t ir = uint8_t(255.99f * c[0]);
             uint8_t ig = uint8_t(255.99f * c[1]);
             uint8_t ib = uint8_t(255.99f * c[2]);

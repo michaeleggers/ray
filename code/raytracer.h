@@ -97,7 +97,7 @@ v3 normalize(v3 a)
 
 enum Shading_t
 {
-    DIFFUSE,
+    LAMBERT,
     METAL,
     NORMALS
 };
@@ -120,11 +120,16 @@ struct Sphere
     float r, g, b; // is this the diffuse?
 };
 
+struct Material
+{
+    Shading_t shadingType;
+    v3 attenuation;
+};
 
 struct Hitable
 {
     Geometry_t geometry;
-    Shading_t shadingType;
+    Material * material;
     union
     {
         Sphere sphere;
@@ -133,7 +138,7 @@ struct Hitable
 
 struct HitRecord
 {
-    Shading_t shadingType;
+    Material * material;
     float distance;
     v3 point;
     v3 normal;
