@@ -124,6 +124,10 @@ struct Material
 {
     Shading_t shadingType;
     v3 attenuation;
+    union
+    {
+        float fuzziness;
+    };
 };
 
 struct Hitable

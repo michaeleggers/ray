@@ -106,14 +106,8 @@ v3 colorizeNormal(Sphere s, v3 point)
     return 0.5f * foo;
 }
 
-// TODO(Michael): duplicate code
-bool scatterLambertianColorizeNormals(HitRecord * hitrec, v3 * attenuation, v3 * scatterDirection)
+v3 randomInUnitSphere()
 {
-    
-    v3 point = hitrec->point;
-    v3 normal = hitrec->normal;
-    *attenuation = { normal[0]+1, normal[1]+1 , normal[2]+1 };
-    *attenuation = 0.5**attenuation; // NOTE(Michael): hihihihihi
     v3 one = {1,1,1};
     v3 p;
     v3 test;
@@ -125,7 +119,18 @@ bool scatterLambertianColorizeNormals(HitRecord * hitrec, v3 * attenuation, v3 *
             rand()/float(RAND_MAX) };
         p = 2.0f*test - one;
     } while(dot(p, p) >= 1.0f);
-    v3 target = point + normal + p;
+    return p;
+}
+
+// TODO(Michael): duplicate code
+bool scatterLambertianColorizeNormals(HitRecord * hitrec, v3 * attenuation, v3 * scatterDirection)
+{
+    
+    v3 point = hitrec->point;
+    v3 normal = hitrec->normal;
+    *attenuation = { normal[0]+1, normal[1]+1 , normal[2]+1 };
+    *attenuation = 0.5**attenuation; // NOTE(Michael): hihihihihi
+    v3 target = point + normal + randomInUnitSphere();
     *scatterDirection = normalize(target-point);
     return true;
 }
@@ -135,18 +140,7 @@ bool scatterLambertian(HitRecord * hitrec, v3 * attenuation, v3 * scatterDirecti
     *attenuation = hitrec->material->attenuation;
     v3 point = hitrec->point;
     v3 normal = hitrec->normal;
-    v3 one = {1,1,1};
-    v3 p;
-    v3 test;
-    do 
-    {
-        test = { 
-            rand()/float(RAND_MAX),
-            rand()/float(RAND_MAX),
-            rand()/float(RAND_MAX) };
-        p = 2.0f*test - one;
-    } while(dot(p, p) >= 1.0f);
-    v3 target = point + normal + p;
+    v3 target = point + normal + randomInUnitSphere();
     *scatterDirection = normalize(target-point);
     return true;
 }
@@ -155,8 +149,9 @@ bool scatterMetal(HitRecord * hitrec, v3 rayOrigin, v3 rayDirection, v3 * attenu
 {
     v3 normal = hitrec->normal;
     v3 point = hitrec->point;
+    float fuzziness = hitrec->material->fuzziness;
     v3 reflectDirection = (-2*dot(rayDirection, normal)*normal + rayDirection);
-    *scatterDirection = normalize(reflectDirection);
+    *scatterDirection = normalize(reflectDirection + fuzziness*randomInUnitSphere());
     *attenuation = hitrec->material->attenuation;
     return (dot(reflectDirection, normal) > 0);
 }
@@ -219,54 +214,6 @@ v3 color(v3 rayOrigin, v3 rayDirection, Hitable * hitables, int hitableCount, in
         float t = 0.5*(rayDirection[1] + 1.0f);
         return ((1.0f - t)*one+t*blue);
     }
-    
-    /*
-    switch (hitrec->shadingType)
-    {
-    case NORMALS:
-    {
-    c = { normal[0] + 1, normal[1] + 1, normal[2] + 1 };
-    c = 0.5f*c;
-    }
-    break;
-    
-    case DIFFUSE:
-    {
-    v3 p;
-    v3 one = {1,1,1};
-    v3 test;
-    do 
-    {
-    test = { 
-    rand()/float(RAND_MAX),
-    rand()/float(RAND_MAX),
-    rand()/float(RAND_MAX) };
-    p = (2.0f*test) - one;
-    } while(dot(p, p) >= 1.0f);
-    v3 target = point + normal + p;
-    HitRecord nextHitrec = hit(point, normalize(target - point), hitables, hitableCount);
-    if (nextHitrec.distance >= 0.0f)
-    return 0.5f*color(&nextHitrec, hitables, hitableCount);
-    else
-    {
-    float t = 0.5*(hitrec->rayDirection[1] + 1.0f);
-    v3 blue = { 0.5f, 0.7f, 1.0f };
-    return 0.5f*((1.0f - t)*one+t*blue);
-    //c = {1,0,0};
-    }
-    }
-    break;
-    
-    default:
-    {
-    v3 one = {1,1,1};
-    float t = 0.5*(hitrec->rayDirection[1] + 1.0f);
-    v3 blue = { 0.5f, 0.7f, 1.0f };
-    return (1.0f - t)*one+t*blue;
-    }
-    }
-    return c;
-    */
 }
 
 int main (int argc, char** argv)
@@ -297,7 +244,9 @@ int main (int argc, char** argv)
     Material lambert1 = { LAMBERT, {0.8f, 0.3f, 0.3f} };
     Material lambert2 = { LAMBERT, {0.8f, 0.8f, 0.0f} };
     Material metal1 = { METAL, {0.8f, 0.6f, 0.2f} };
+    metal1.fuzziness = 1.0f;
     Material metal2 = { METAL, {0.8f, 0.8f, 0.8f} };
+    metal2.fuzziness = 0.3f;
     
     // test objects
     Hitable testsphere1 = {};
