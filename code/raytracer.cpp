@@ -14,13 +14,13 @@
 // TODO(Michael): write ppm data into buffer and write to file at the end.
 // TODO(Michael): read scene from file
 
-global_var v3 cameraPos = { 0.0f, 0.0f, 2.0f };
+global_var v3 cameraPos = { 0.0f, 0.0f, 3.0f };
 global_var v3 lookAt = { 0.0f, 0.0f, 0.0f }; // viewport center
 global_var v3 up = { 0, 1, 0 };
 global_var float viewPortWidth = 2.0f;
 global_var float viewPortHeight = 2.0f;
-global_var int resolutionX = 1920;
-global_var int resolutionY = 817;
+global_var int resolutionX = 1920/2;
+global_var int resolutionY = 817/2;
 
 // check if ray intersects sphere
 // see: https://www.siggraph.org/education/materials/HyperGraph/raytrace/rtinter1.htm
@@ -164,34 +164,26 @@ v3 color(v3 rayOrigin, v3 rayDirection, Hitable * hitables, int hitableCount, in
     {
         if (depth > 0)
         {
+            v3 attenuation;
+            v3 scatterDirection;
+            bool hasScatterHit = false;
             switch (hitrec.material->shadingType)
             {
                 case LAMBERT:
                 {
-                    v3 scatterDirection;
-                    v3 attenuation;
-                    scatterLambertian(&hitrec, &attenuation, &scatterDirection);
-                    return attenuation*color(hitrec.point, scatterDirection, hitables, hitableCount, depth-1);
+                    hasScatterHit = scatterLambertian(&hitrec, &attenuation, &scatterDirection);
                 }
                 break;
                 
                 case METAL:
                 {
-                    v3 scatterDirection;
-                    v3 attenuation;
-                    if (scatterMetal(&hitrec, rayOrigin, rayDirection, &attenuation, &scatterDirection))
-                        return attenuation*color(hitrec.point, scatterDirection, hitables, hitableCount, depth-1);
-                    else
-                        return { 0, 0, 0 };
+                    hasScatterHit = scatterMetal(&hitrec, rayOrigin, rayDirection, &attenuation, &scatterDirection);
                 }
                 break;
                 
                 case NORMALS:
                 {
-                    v3 scatterDirection;
-                    v3 attenuation;
-                    scatterLambertianColorizeNormals(&hitrec, &attenuation, &scatterDirection);
-                    return attenuation*color(hitrec.point, scatterDirection, hitables, hitableCount, depth-1);
+                    hasScatterHit = scatterLambertianColorizeNormals(&hitrec, &attenuation, &scatterDirection);
                 }
                 break;
                 
@@ -200,6 +192,10 @@ v3 color(v3 rayOrigin, v3 rayDirection, Hitable * hitables, int hitableCount, in
                     return { 1, 0, 0 };
                 }
             }
+            if (hasScatterHit)
+                return attenuation*color(hitrec.point, scatterDirection, hitables, hitableCount, depth-1);
+            else
+                return { 0, 0, 0 };
         }
         else
         {
@@ -242,11 +238,13 @@ int main (int argc, char** argv)
     
     // materials
     Material lambert1 = { LAMBERT, {0.8f, 0.3f, 0.3f} };
-    Material lambert2 = { LAMBERT, {0.8f, 0.8f, 0.0f} };
+    Material lambert2 = { LAMBERT, {float(153)/float(255), 0.0f, float(153)/float(255)} };
     Material metal1 = { METAL, {0.8f, 0.6f, 0.2f} };
     metal1.fuzziness = 1.0f;
     Material metal2 = { METAL, {0.8f, 0.8f, 0.8f} };
     metal2.fuzziness = 0.3f;
+    Material metal3 = { METAL, {0.8f, 0.8f, 0.8f} };
+    metal3.fuzziness = 0.1f;
     
     // test objects
     Hitable testsphere1 = {};
@@ -269,6 +267,11 @@ int main (int argc, char** argv)
     testsphere4.material = &metal2;
     testsphere4.sphere = { {-1, 0, -1}, 0.5, 1, 0, 1 };
     
+    Hitable testsphere5 = {};
+    testsphere5.geometry = SPHERE;
+    testsphere5.material = &metal3;
+    testsphere5.sphere = { {0, 2, -2.5}, 2, 1, 0, 1 };
+    
     // add test objects to "scene"
     Hitable scene[] = { testsphere1, testsphere2, testsphere3, testsphere4 };
     
@@ -288,7 +291,7 @@ int main (int argc, char** argv)
              ++col)
         {
             
-            int sampleCount = 100;
+            int sampleCount = 5;
             v3 c;
             for (int i = 0;
                  i < sampleCount;
@@ -316,7 +319,7 @@ int main (int argc, char** argv)
                 
                 int hitableCount = sizeof(scene)/sizeof(scene[0]);
                 // test intersection with objects
-                c = c + color(cameraPos, ray, scene, hitableCount, 50);
+                c = c + color(cameraPos, ray, scene, hitableCount, 25);
             }
             c = c /  float(sampleCount);
             c = { sqrt(c[0]), sqrt(c[1]), sqrt(c[2]) };
