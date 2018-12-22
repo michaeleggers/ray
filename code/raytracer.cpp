@@ -149,6 +149,19 @@ v3 reflect(v3 rayDirection, v3 normal)
     return (-2*dot(rayDirection, normal)*normal + rayDirection);
 }
 
+bool refract(v3 rayDirection, v3 normal, float niOverNt, v3 * refracted)
+{
+    v3 uv = normalize(rayDirection);
+    float dt = dot(uv, normal);
+    float discriminant = 1.0 - niOverNt*niOverNt*(1-dt*dt);
+    if (discriminant > 0)
+    {
+        *refracted = niOverNt*(uv - normal*dt) - normal*sqrt(discriminant);
+        return true;
+    }
+    return false;
+}
+
 bool scatterMetal(HitRecord * hitrec, v3 rayOrigin, v3 rayDirection, v3 * attenuation, v3 * scatterDirection)
 {
     v3 normal = hitrec->normal;
@@ -158,6 +171,35 @@ bool scatterMetal(HitRecord * hitrec, v3 rayOrigin, v3 rayDirection, v3 * attenu
     *scatterDirection = normalize(reflectDirection + fuzziness*randomInUnitSphere());
     *attenuation = hitrec->material->attenuation;
     return (dot(reflectDirection, normal) > 0);
+}
+
+bool scatterDialectric(HitRecord * hitrec, v3 rayOrigin, v3 rayDirection, v3 * attenuation, v3 * scatterDirection, float refractiveIndex)
+{
+    v3 outwardNormal;
+    v3 reflected = reflect(rayDirection, hitrec->normal);
+    float niOverNt;
+    *attenuation = { 1.0f, 1.0f, 1.0f };
+    v3 refracted;
+    if (dot(rayDirection, hitrec->normal) > 0)
+    {
+        outwardNormal = -1.0f*hitrec->normal;
+        niOverNt = refractiveIndex; // refraction refractiveIndex
+    }
+    else
+    {
+        outwardNormal = hitrec->normal;
+        niOverNt = 1.0f / refractiveIndex;
+    }
+    if (refract(rayDirection, outwardNormal, niOverNt, &refracted))
+    {
+        *scatterDirection = normalize(refracted);
+    }
+    else
+    {
+        *scatterDirection = normalize(refracted);
+        return false;
+    }
+    return true;
 }
 
 v3 color(v3 rayOrigin, v3 rayDirection, Hitable * hitables, int hitableCount, int depth)
@@ -182,6 +224,12 @@ v3 color(v3 rayOrigin, v3 rayDirection, Hitable * hitables, int hitableCount, in
                 case METAL:
                 {
                     hasScatterHit = scatterMetal(&hitrec, rayOrigin, rayDirection, &attenuation, &scatterDirection);
+                }
+                break;
+                
+                case DIALECTRIC:
+                {
+                    hasScatterHit = scatterDialectric(&hitrec, rayOrigin, rayDirection, &attenuation, &scatterDirection, 1.5f);
                 }
                 break;
                 
@@ -244,11 +292,12 @@ int main (int argc, char** argv)
     Material lambert1 = { LAMBERT, {0.8f, 0.3f, 0.3f} };
     Material lambert2 = { LAMBERT, {float(153)/float(255), 0.0f, float(153)/float(255)} };
     Material metal1 = { METAL, {0.8f, 0.6f, 0.2f} };
-    metal1.fuzziness = 1.0f;
+    metal1.fuzziness = 0.0f;
     Material metal2 = { METAL, {0.8f, 0.8f, 0.8f} };
     metal2.fuzziness = 0.3f;
     Material metal3 = { METAL, {0.8f, 0.8f, 0.8f} };
     metal3.fuzziness = 0.1f;
+    Material glass = { DIALECTRIC, {1,1,1} };
     
     // test objects
     Hitable testsphere1 = {};
@@ -268,7 +317,7 @@ int main (int argc, char** argv)
     
     Hitable testsphere4 = {};
     testsphere4.geometry = SPHERE;
-    testsphere4.material = &metal2;
+    testsphere4.material = &glass;
     testsphere4.sphere = { {-1, 0, -1}, 0.5, 1, 0, 1 };
     
     Hitable testsphere5 = {};
@@ -295,7 +344,7 @@ int main (int argc, char** argv)
              ++col)
         {
             
-            int sampleCount = 5;
+            int sampleCount = 2;
             v3 c;
             for (int i = 0;
                  i < sampleCount;

@@ -100,6 +100,7 @@ enum Shading_t
 {
     LAMBERT,
     METAL,
+    DIALECTRIC,
     NORMALS
 };
 
