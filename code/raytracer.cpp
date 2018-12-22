@@ -125,7 +125,6 @@ v3 randomInUnitSphere()
 // TODO(Michael): duplicate code
 bool scatterLambertianColorizeNormals(HitRecord * hitrec, v3 * attenuation, v3 * scatterDirection)
 {
-    
     v3 point = hitrec->point;
     v3 normal = hitrec->normal;
     *attenuation = { normal[0]+1, normal[1]+1 , normal[2]+1 };
@@ -145,12 +144,17 @@ bool scatterLambertian(HitRecord * hitrec, v3 * attenuation, v3 * scatterDirecti
     return true;
 }
 
+v3 reflect(v3 rayDirection, v3 normal)
+{
+    return (-2*dot(rayDirection, normal)*normal + rayDirection);
+}
+
 bool scatterMetal(HitRecord * hitrec, v3 rayOrigin, v3 rayDirection, v3 * attenuation, v3 * scatterDirection)
 {
     v3 normal = hitrec->normal;
     v3 point = hitrec->point;
     float fuzziness = hitrec->material->fuzziness;
-    v3 reflectDirection = (-2*dot(rayDirection, normal)*normal + rayDirection);
+    v3 reflectDirection = reflect(rayDirection, normal);
     *scatterDirection = normalize(reflectDirection + fuzziness*randomInUnitSphere());
     *attenuation = hitrec->material->attenuation;
     return (dot(reflectDirection, normal) > 0);
