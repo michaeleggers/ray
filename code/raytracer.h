@@ -129,6 +129,7 @@ struct Material
     union
     {
         float fuzziness;
+        float ior;
     };
 };
 

@@ -19,8 +19,8 @@ global_var v3 lookAt = { 0.0f, 0.0f, 0.0f }; // viewport center
 global_var v3 up = { 0, 1, 0 };
 global_var float viewPortWidth = 2.0f;
 global_var float viewPortHeight = 2.0f;
-global_var int resolutionX = 1920/2;
-global_var int resolutionY = 817/2;
+global_var int resolutionX = 1920;
+global_var int resolutionY = 817;
 
 // check if ray intersects sphere
 // see: https://www.siggraph.org/education/materials/HyperGraph/raytrace/rtinter1.htm
@@ -173,8 +173,9 @@ bool scatterMetal(HitRecord * hitrec, v3 rayOrigin, v3 rayDirection, v3 * attenu
     return (dot(reflectDirection, normal) > 0);
 }
 
-bool scatterDialectric(HitRecord * hitrec, v3 rayOrigin, v3 rayDirection, v3 * attenuation, v3 * scatterDirection, float refractiveIndex)
+bool scatterDialectric(HitRecord * hitrec, v3 rayOrigin, v3 rayDirection, v3 * attenuation, v3 * scatterDirection)
 {
+    float ior = hitrec->material->ior;
     v3 outwardNormal;
     v3 reflected = reflect(rayDirection, hitrec->normal);
     float niOverNt;
@@ -183,12 +184,12 @@ bool scatterDialectric(HitRecord * hitrec, v3 rayOrigin, v3 rayDirection, v3 * a
     if (dot(rayDirection, hitrec->normal) > 0)
     {
         outwardNormal = -1.0f*hitrec->normal;
-        niOverNt = refractiveIndex; // refraction refractiveIndex
+        niOverNt = ior;
     }
     else
     {
         outwardNormal = hitrec->normal;
-        niOverNt = 1.0f / refractiveIndex;
+        niOverNt = 1.0f / ior;
     }
     if (refract(rayDirection, outwardNormal, niOverNt, &refracted))
     {
@@ -229,7 +230,7 @@ v3 color(v3 rayOrigin, v3 rayDirection, Hitable * hitables, int hitableCount, in
                 
                 case DIALECTRIC:
                 {
-                    hasScatterHit = scatterDialectric(&hitrec, rayOrigin, rayDirection, &attenuation, &scatterDirection, 1.5f);
+                    hasScatterHit = scatterDialectric(&hitrec, rayOrigin, rayDirection, &attenuation, &scatterDirection);
                 }
                 break;
                 
@@ -298,6 +299,7 @@ int main (int argc, char** argv)
     Material metal3 = { METAL, {0.8f, 0.8f, 0.8f} };
     metal3.fuzziness = 0.1f;
     Material glass = { DIALECTRIC, {1,1,1} };
+    glass.ior = 1.5f;
     
     // test objects
     Hitable testsphere1 = {};
@@ -318,7 +320,7 @@ int main (int argc, char** argv)
     Hitable testsphere4 = {};
     testsphere4.geometry = SPHERE;
     testsphere4.material = &glass;
-    testsphere4.sphere = { {-1, 0, -1}, 0.5, 1, 0, 1 };
+    testsphere4.sphere = { {-1, 0, -1}, 0.5f, 1, 0, 1 };
     
     Hitable testsphere5 = {};
     testsphere5.geometry = SPHERE;
@@ -344,7 +346,7 @@ int main (int argc, char** argv)
              ++col)
         {
             
-            int sampleCount = 2;
+            int sampleCount = 5;
             v3 c;
             for (int i = 0;
                  i < sampleCount;
