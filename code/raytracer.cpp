@@ -6,6 +6,8 @@
 
 #include "raytracer.h"
 
+#define PI 3.1415926f
+
 // TODO(Michael): fix aspect ration when res is not x = y
 // TODO(Michael): camera should be struct
 // TODO(Michael): viewport should be struct
@@ -149,14 +151,28 @@ v3 reflect(v3 rayDirection, v3 normal)
     return (-2*dot(rayDirection, normal)*normal + rayDirection);
 }
 
-bool refract(v3 rayDirection, v3 normal, float niOverNt, v3 * refracted)
+bool refract(HitRecord * hitrec, v3 rayDirection, v3 * attenuation, v3 * refracted)
 {
-    v3 uv = normalize(rayDirection);
-    float dt = dot(uv, normal);
-    float discriminant = 1.0 - niOverNt*niOverNt*(1-dt*dt);
+    float ior = hitrec->material->ior;
+    v3 normal = hitrec->normal;
+    *attenuation = { 1, 1, 1 };
+    v3 incident = normalize(rayDirection);
+    float incidentDotNormal = dot(incident, normal);
+    float n;
+    if (incidentDotNormal < 0) // hit outside surface
+    {
+        n = 1.0f/ior;
+        incidentDotNormal = -1.0f*incidentDotNormal;
+    }
+    else // ray inside surface
+    {
+        n = ior;
+        normal = -1.0f*normal;
+    }
+    float discriminant = 1-n*n*(1-incidentDotNormal*incidentDotNormal);
     if (discriminant > 0)
     {
-        *refracted = niOverNt*(uv - normal*dt) - normal*sqrt(discriminant);
+        *refracted = normalize(n*(incident + incidentDotNormal*normal) - normal*sqrt(discriminant));
         return true;
     }
     return false;
@@ -171,36 +187,6 @@ bool scatterMetal(HitRecord * hitrec, v3 rayOrigin, v3 rayDirection, v3 * attenu
     *scatterDirection = normalize(reflectDirection + fuzziness*randomInUnitSphere());
     *attenuation = hitrec->material->attenuation;
     return (dot(reflectDirection, normal) > 0);
-}
-
-bool scatterDialectric(HitRecord * hitrec, v3 rayOrigin, v3 rayDirection, v3 * attenuation, v3 * scatterDirection)
-{
-    float ior = hitrec->material->ior;
-    v3 outwardNormal;
-    v3 reflected = reflect(rayDirection, hitrec->normal);
-    float niOverNt;
-    *attenuation = { 1.0f, 1.0f, 1.0f };
-    v3 refracted;
-    if (dot(rayDirection, hitrec->normal) > 0)
-    {
-        outwardNormal = -1.0f*hitrec->normal;
-        niOverNt = ior;
-    }
-    else
-    {
-        outwardNormal = hitrec->normal;
-        niOverNt = 1.0f / ior;
-    }
-    if (refract(rayDirection, outwardNormal, niOverNt, &refracted))
-    {
-        *scatterDirection = normalize(refracted);
-    }
-    else
-    {
-        *scatterDirection = normalize(refracted);
-        return false;
-    }
-    return true;
 }
 
 v3 color(v3 rayOrigin, v3 rayDirection, Hitable * hitables, int hitableCount, int depth)
@@ -230,7 +216,7 @@ v3 color(v3 rayOrigin, v3 rayDirection, Hitable * hitables, int hitableCount, in
                 
                 case DIALECTRIC:
                 {
-                    hasScatterHit = scatterDialectric(&hitrec, rayOrigin, rayDirection, &attenuation, &scatterDirection);
+                    hasScatterHit = refract(&hitrec, rayDirection, &attenuation, &scatterDirection);
                 }
                 break;
                 
