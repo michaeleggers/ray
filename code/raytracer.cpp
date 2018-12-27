@@ -310,8 +310,8 @@ int main (int argc, char** argv)
     
     Hitable testsphere5 = {};
     testsphere5.geometry = SPHERE;
-    testsphere5.material = &metal3;
-    testsphere5.sphere = { {0, 2, -2.5}, 2, 1, 0, 1 };
+    testsphere5.material = &glass;
+    testsphere5.sphere = { {-1, 0, -1}, -0.45f, 1, 0, 1 };
     
     // add test objects to "scene"
     Hitable scene[] = { testsphere1, testsphere2, testsphere3, testsphere4 };
