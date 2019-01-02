@@ -162,12 +162,12 @@ bool refract(HitRecord * hitrec, v3 rayDirection, v3 * attenuation, v3 * refract
     if (incidentDotNormal < 0) // hit outside surface
     {
         n = 1.0f/ior;
-        incidentDotNormal = -1.0f*incidentDotNormal;
+        incidentDotNormal = -incidentDotNormal;
     }
     else // ray inside surface
     {
         n = ior;
-        normal = -1.0f*normal;
+        normal = -normal;
     }
     float discriminant = 1-n*n*(1-incidentDotNormal*incidentDotNormal);
     if (discriminant > 0)

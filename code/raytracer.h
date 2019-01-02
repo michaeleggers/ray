@@ -57,6 +57,15 @@ struct v3
     
 };
 
+v3 operator-(v3 & v)
+{
+    return { 
+        -v.components[0],
+        -v.components[1],
+        -v.components[2]
+    };
+}
+
 v3 operator*(float scalar, v3 v)
 {
     return {
