@@ -16,13 +16,61 @@
 // TODO(Michael): write ppm data into buffer and write to file at the end.
 // TODO(Michael): read scene from file
 
-global_var v3 cameraPos = { 0.0f, 0.0f, 3.0f };
+global_var v3 cameraPos = { 0.0f, 0.0f, 40.0f };
 global_var v3 lookAt = { 0.0f, 0.0f, 0.0f }; // viewport center
 global_var v3 up = { 0, 1, 0 };
 global_var float viewPortWidth = 2.0f;
 global_var float viewPortHeight = 2.0f;
-global_var int resolutionX = 1920;
-global_var int resolutionY = 817;
+global_var int resolutionX = 5120;
+global_var int resolutionY = 1440;
+
+inline float randBetween(float lowerBound, float upperBound)
+{
+    float offset = lowerBound - 0.0f;
+    float range = upperBound - lowerBound;
+    return range/1.0f * (rand()/(float)RAND_MAX) + lowerBound;
+}
+
+void createRandomScene(int hitableCount, Hitable ** hitables, int materialCount, Material ** materials)
+{
+    *materials = (Material*)malloc(sizeof(Material)*materialCount);
+    Material * material = *materials;
+    for (int i = 0;
+         i < materialCount;
+         ++i)
+    {
+        material->shadingType = METAL;
+        material->attenuation = { 
+            randBetween(0.3f, 1.0f),
+            randBetween(0.3f, 1.0f),
+            randBetween(0.3f, 1.0f)}; 
+        material->fuzziness = 0.0f; //randBetween(0.0f, 0.4f);
+        material++;
+    }
+    
+    *hitables = (Hitable*)malloc(sizeof(Hitable)*hitableCount);
+    Hitable * hitable = *hitables;
+    for (int i = 0;
+         i < hitableCount;
+         ++i)
+    {
+        float materialIndex = randBetween(0, materialCount);
+        Material * material = *materials + (int)materialIndex;
+        Hitable sphere = {};
+        sphere.geometry = SPHERE;
+        sphere.material = material;
+        sphere.sphere = {
+            {
+                randBetween(-40.0f, 40.0f),
+                randBetween(-20.0f, 20.0f),
+                randBetween(-20.0f, 20.0f)
+            },
+            randBetween(0.1f, 7.0f)
+        };
+        *hitable = sphere;
+        hitable++;
+    }
+}
 
 // check if ray intersects sphere
 // see: https://www.siggraph.org/education/materials/HyperGraph/raytrace/rtinter1.htm
@@ -244,7 +292,7 @@ v3 color(v3 rayOrigin, v3 rayDirection, Hitable * hitables, int hitableCount, in
     else
     {
         v3 one = {1,1,1};
-        v3 blue = { 0.5f, 0.7f, 1.0f };
+        v3 blue = { 0.3f, 0.5f, 0.8f };
         v3 orange = { 1.0f, float(204)/float(255), float(153)/float(255) };
         float t = 0.5*(rayDirection[1] + 1.0f);
         return ((1.0f - t)*one+t*blue);
@@ -316,6 +364,13 @@ int main (int argc, char** argv)
     // add test objects to "scene"
     Hitable scene[] = { testsphere1, testsphere2, testsphere3, testsphere4 };
     
+    // random scene
+    Material * randomMaterials = 0;
+    int randMaterialCount = 40;
+    Hitable * randomHitables = 0;
+    int randHitableCount = 100;
+    createRandomScene(randHitableCount, &randomHitables, randMaterialCount, &randomMaterials);
+    
     // test lights
     Light testLight;
     testLight.pos = { -10.0f, 5.0f, 3.0f };
@@ -332,7 +387,7 @@ int main (int argc, char** argv)
              ++col)
         {
             
-            int sampleCount = 5;
+            int sampleCount = 1;
             v3 c;
             for (int i = 0;
                  i < sampleCount;
@@ -351,19 +406,19 @@ int main (int argc, char** argv)
                 // https://www.siggraph.org/education/materials/HyperGraph/raytrace/rtinter1.htm
                 
                 // compute ray from camera pos to relative viewport pixel
-                v3 originToCenter = cameraPos + viewDir*cameraDistance;
+                v3 originToCenter = cameraPos + viewDir; //*cameraDistance;
                 
                 // NOTE(Michael): -viewportY, because relative viewport Y goes from top(-) to bottom(+)
                 v3 centerToPixel = originToCenter + (viewportX * viewSide) + (-viewportY * viewUp);
                 v3 ray = centerToPixel - cameraPos;
                 ray = normalize(ray);
                 
-                int hitableCount = sizeof(scene)/sizeof(scene[0]);
+                int hitableCount = randHitableCount; //sizeof(scene)/sizeof(scene[0]);
                 // test intersection with objects
-                c = c + color(cameraPos, ray, scene, hitableCount, 25);
+                c = c + color(cameraPos, ray, randomHitables, hitableCount, 50);
             }
             c = c /  float(sampleCount);
-            c = { sqrt(c[0]), sqrt(c[1]), sqrt(c[2]) };
+            //c = { sqrt(c[0]), sqrt(c[1]), sqrt(c[2]) };
             uint8_t ir = uint8_t(255.99f * c[0]);
             uint8_t ig = uint8_t(255.99f * c[1]);
             uint8_t ib = uint8_t(255.99f * c[2]);
