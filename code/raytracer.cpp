@@ -21,8 +21,8 @@ global_var v3 lookAt = { 0.0f, 0.0f, 0.0f }; // viewport center
 global_var v3 up = { 0, 1, 0 };
 global_var float viewPortWidth = 2.0f;
 global_var float viewPortHeight = 2.0f;
-global_var int resolutionX = 5120;
-global_var int resolutionY = 1440;
+global_var int resolutionX = 512;
+global_var int resolutionY = 512;
 
 inline float randBetween(float lowerBound, float upperBound)
 {
@@ -301,12 +301,19 @@ v3 color(v3 rayOrigin, v3 rayDirection, Hitable * hitables, int hitableCount, in
 
 int main (int argc, char** argv)
 {
-    // create ppm file and header
+    // create ppm file, header and buffer
     FILE* ppmFile = fopen("ray_test.ppm", "w");
     std::string resolutionXA = std::to_string(resolutionX);
     std::string resolutionYA = std::to_string(resolutionY);
     std::string ppmHeader = "P3\n" + resolutionXA + " " + resolutionYA + "\n255\n";
-    fprintf(ppmFile, ppmHeader.c_str());
+    char * outputBuffer = (char *)malloc(sizeof(char)*3*4*(resolutionX*resolutionY) + sizeof(char)*ppmHeader.length());
+    if (!outputBuffer)
+    {
+        return -1;
+    }
+    char *bufferPos = outputBuffer;
+    strcpy(bufferPos, ppmHeader.c_str());
+    bufferPos += ppmHeader.length();
     
     // compute view, right and up vectors via Gram-Schmidt orthogonalization (p. 236 Van Verth)
     v3 viewDir = lookAt - cameraPos;
@@ -415,7 +422,7 @@ int main (int argc, char** argv)
                 
                 int hitableCount = randHitableCount; //sizeof(scene)/sizeof(scene[0]);
                 // test intersection with objects
-                c = c + color(cameraPos, ray, randomHitables, hitableCount, 50);
+                c = c + color(cameraPos, ray, randomHitables, hitableCount, 5);
             }
             c = c /  float(sampleCount);
             //c = { sqrt(c[0]), sqrt(c[1]), sqrt(c[2]) };
@@ -423,10 +430,16 @@ int main (int argc, char** argv)
             uint8_t ig = uint8_t(255.99f * c[1]);
             uint8_t ib = uint8_t(255.99f * c[2]);
             std::string rgb = std::to_string(ir) + " " + std::to_string(ig) + " " + std::to_string(ib) + " ";
-            fprintf(ppmFile, rgb.c_str());
+            strcpy(bufferPos, rgb.c_str());
+            bufferPos += rgb.length();
         }
-        fprintf(ppmFile, "\n");
+        *bufferPos = '\n';
+        bufferPos++;
     }
+    *bufferPos = '\0';
+    bufferPos++;
+    int bytesWritten = bufferPos - outputBuffer;
+    fwrite(outputBuffer, sizeof(char), bytesWritten, ppmFile);
     fclose(ppmFile);
     
     return 0;
