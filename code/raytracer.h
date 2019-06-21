@@ -105,6 +105,11 @@ v3 normalize(v3 a)
     return a / length(a);
 }
 
+struct Triangle
+{
+    v3 v0, v1, v2;
+};
+
 enum Shading_t
 {
     LAMBERT,
@@ -115,7 +120,8 @@ enum Shading_t
 
 enum Geometry_t
 {
-    SPHERE
+    SPHERE,
+    TRIANGLE
 };
 
 struct Light
@@ -149,6 +155,7 @@ struct Hitable
     union
     {
         Sphere sphere;
+        Triangle triangle;
     };
 };
 

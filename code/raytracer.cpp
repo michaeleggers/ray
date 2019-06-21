@@ -16,13 +16,14 @@
 // TODO(Michael): write ppm data into buffer and write to file at the end.
 // TODO(Michael): read scene from file
 
-global_var v3 cameraPos = { 0.0f, 0.0f, 40.0f };
+global_var v3 cameraPos = { 0.0f, 2.0f, 4.0f };
 global_var v3 lookAt = { 0.0f, 0.0f, 0.0f }; // viewport center
 global_var v3 up = { 0, 1, 0 };
 global_var float viewPortWidth = 2.0f;
 global_var float viewPortHeight = 2.0f;
 global_var int resolutionX = 512;
 global_var int resolutionY = 512;
+global_var float const EPSILON = 0.00001f;
 
 inline float randBetween(float lowerBound, float upperBound)
 {
@@ -103,6 +104,41 @@ bool hitSphere(v3 rayOrigin, v3 rayDirection, Sphere object, HitRecord * hitrec)
     return hasHit;
 }
 
+bool hitTriangle(v3 rayOrigin, v3 rayDirection, Triangle tri, HitRecord * hitrec)
+{
+    v3 v0 = tri.v0;
+    v3 v1 = tri.v1;  
+    v3 v2 = tri.v2;
+    v3 edge1, edge2, h, s, q;
+    float a,f,u,v;
+    edge1 = v1 - v0;
+    edge2 = v2 - v0;
+    h = cross(rayDirection, edge2);
+    a = dot(edge1, h);
+    if (a > -EPSILON && a < EPSILON)
+        return false;    // This ray is parallel to this triangle.
+    f = 1.0/a;
+    s = rayOrigin - v0;
+    u = f * (dot(s, h));
+    if (u < 0.0 || u > 1.0)
+        return false;
+    q = cross(s, edge1);
+    v = f * dot(rayDirection, q);
+    if (v < 0.0 || u + v > 1.0)
+        return false;
+    // At this stage we can compute t to find out where the intersection point is on the line.
+    float t = f * dot(edge2, q);
+    if (t > EPSILON) // ray intersection
+    {
+        hitrec->point = rayOrigin + rayDirection * t;
+        hitrec->normal = normalize(cross(edge1, edge2));
+        hitrec->distance = t;
+        return true;
+    }
+    else // This means that there is a line intersection but not a ray intersection.
+        return false;
+}
+
 bool hit(v3 rayOrigin, v3 rayDirection, Hitable* hitables, int hitableCount, HitRecord * hitrec)
 {
     HitRecord tempHitrec;
@@ -119,6 +155,20 @@ bool hit(v3 rayOrigin, v3 rayDirection, Hitable* hitables, int hitableCount, Hit
             case SPHERE:
             {
                 if (hitSphere(rayOrigin, rayDirection, hitable->sphere, &tempHitrec))
+                {
+                    if (tempHitrec.distance < closestSoFar)
+                    {
+                        *hitrec = tempHitrec;
+                        closestSoFar = hitrec->distance;
+                        hasHit = true;
+                    }
+                }
+            }
+            break;
+            
+            case TRIANGLE:
+            {
+                if (hitTriangle(rayOrigin, rayDirection, hitable->triangle, &tempHitrec))
                 {
                     if (tempHitrec.distance < closestSoFar)
                     {
@@ -333,10 +383,10 @@ int main (int argc, char** argv)
     // materials
     Material lambert1 = { LAMBERT, {0.8f, 0.3f, 0.3f} };
     Material lambert2 = { LAMBERT, {float(153)/float(255), 0.0f, float(153)/float(255)} };
-    Material metal1 = { METAL, {0.8f, 0.6f, 0.2f} };
+    Material metal1 = { METAL, {1.0f, 1.0f, 1.0f} };
     metal1.fuzziness = 0.0f;
-    Material metal2 = { METAL, {0.8f, 0.8f, 0.8f} };
-    metal2.fuzziness = 0.3f;
+    Material metal2 = { METAL, {0.6f, 0.8f,  1.0f} };
+    metal2.fuzziness = 0.1f;
     Material metal3 = { METAL, {0.8f, 0.8f, 0.8f} };
     metal3.fuzziness = 0.1f;
     Material glass = { DIALECTRIC, {1,1,1} };
@@ -346,17 +396,17 @@ int main (int argc, char** argv)
     Hitable testsphere1 = {};
     testsphere1.geometry = SPHERE;
     testsphere1.material = &lambert1;
-    testsphere1.sphere = { {0, 0, -1.0}, 0.5, 1, 0, 1 };
+    testsphere1.sphere = { {0, 0, 2}, 0.5, 1, 0, 1 };
     
     Hitable testsphere2 = {};
     testsphere2.geometry = SPHERE;
     testsphere2.material = &lambert2;
-    testsphere2.sphere = { {0, -100.5, -1.0}, 100.0, 1, 0, 1 };
+    testsphere2.sphere = { {0, -100.5, 2}, 100.0, 1, 0, 1 };
     
     Hitable testsphere3 = {};
     testsphere3.geometry = SPHERE;
     testsphere3.material = &metal1;
-    testsphere3.sphere = { {1, 0, -1}, 0.5, 1, 0, 0 };
+    testsphere3.sphere = { {1, 0, 2}, 0.5, 1, 0, 0 };
     
     Hitable testsphere4 = {};
     testsphere4.geometry = SPHERE;
@@ -368,8 +418,18 @@ int main (int argc, char** argv)
     testsphere5.material = &glass;
     testsphere5.sphere = { {-1, 0, -1}, -0.45f, 1, 0, 1 };
     
+    Hitable testTriangle = {};
+    testTriangle.geometry = TRIANGLE;
+    testTriangle.material = &metal1;
+    testTriangle.triangle = { {2.0f, 0.0f, -1}, {0.0f, 2.0f, -1}, {-2.0, 0, -1} };
+    
+    Hitable testTriangle2 = {};
+    testTriangle2.geometry = TRIANGLE;
+    testTriangle2.material = &metal2;
+    testTriangle2.triangle = { {4.0f, 0.0f, 0}, {2.0f, 2.0f, 0}, {0, 0, 0} };
+    
     // add test objects to "scene"
-    Hitable scene[] = { testsphere1, testsphere2, testsphere3, testsphere4 };
+    Hitable scene[] = {  testsphere1, testsphere2, testsphere3, testTriangle, testTriangle2 };
     
     // random scene
     Material * randomMaterials = 0;
@@ -394,7 +454,7 @@ int main (int argc, char** argv)
              ++col)
         {
             
-            int sampleCount = 1;
+            int sampleCount = 60;
             v3 c;
             for (int i = 0;
                  i < sampleCount;
@@ -420,9 +480,9 @@ int main (int argc, char** argv)
                 v3 ray = centerToPixel - cameraPos;
                 ray = normalize(ray);
                 
-                int hitableCount = randHitableCount; //sizeof(scene)/sizeof(scene[0]);
+                int hitableCount = sizeof(scene)/sizeof(scene[0]);
                 // test intersection with objects
-                c = c + color(cameraPos, ray, randomHitables, hitableCount, 5);
+                c = c + color(cameraPos, ray, scene, hitableCount, 5);
             }
             c = c /  float(sampleCount);
             //c = { sqrt(c[0]), sqrt(c[1]), sqrt(c[2]) };
