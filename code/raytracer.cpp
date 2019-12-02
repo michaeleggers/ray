@@ -16,7 +16,7 @@
 // TODO(Michael): write ppm data into buffer and write to file at the end.
 // TODO(Michael): read scene from file
 
-global_var v3 cameraPos = { 0.0f, 2.0f, 4.0f };
+global_var v3 cameraPos = { 0.0f, 0.0f, 4.0f };
 global_var v3 lookAt = { 0.0f, 0.0f, 0.0f }; // viewport center
 global_var v3 up = { 0, 1, 0 };
 global_var float viewPortWidth = 2.0f;
@@ -104,41 +104,6 @@ bool hitSphere(v3 rayOrigin, v3 rayDirection, Sphere object, HitRecord * hitrec)
     return hasHit;
 }
 
-bool hitTriangle(v3 rayOrigin, v3 rayDirection, Triangle tri, HitRecord * hitrec)
-{
-    v3 v0 = tri.v0;
-    v3 v1 = tri.v1;  
-    v3 v2 = tri.v2;
-    v3 edge1, edge2, h, s, q;
-    float a,f,u,v;
-    edge1 = v1 - v0;
-    edge2 = v2 - v0;
-    h = cross(rayDirection, edge2);
-    a = dot(edge1, h);
-    if (a > -EPSILON && a < EPSILON)
-        return false;    // This ray is parallel to this triangle.
-    f = 1.0/a;
-    s = rayOrigin - v0;
-    u = f * (dot(s, h));
-    if (u < 0.0 || u > 1.0)
-        return false;
-    q = cross(s, edge1);
-    v = f * dot(rayDirection, q);
-    if (v < 0.0 || u + v > 1.0)
-        return false;
-    // At this stage we can compute t to find out where the intersection point is on the line.
-    float t = f * dot(edge2, q);
-    if (t > EPSILON) // ray intersection
-    {
-        hitrec->point = rayOrigin + rayDirection * t;
-        hitrec->normal = normalize(cross(edge1, edge2));
-        hitrec->distance = t;
-        return true;
-    }
-    else // This means that there is a line intersection but not a ray intersection.
-        return false;
-}
-
 bool hit(v3 rayOrigin, v3 rayDirection, Hitable* hitables, int hitableCount, HitRecord * hitrec)
 {
     HitRecord tempHitrec;
@@ -155,20 +120,6 @@ bool hit(v3 rayOrigin, v3 rayDirection, Hitable* hitables, int hitableCount, Hit
             case SPHERE:
             {
                 if (hitSphere(rayOrigin, rayDirection, hitable->sphere, &tempHitrec))
-                {
-                    if (tempHitrec.distance < closestSoFar)
-                    {
-                        *hitrec = tempHitrec;
-                        closestSoFar = hitrec->distance;
-                        hasHit = true;
-                    }
-                }
-            }
-            break;
-            
-            case TRIANGLE:
-            {
-                if (hitTriangle(rayOrigin, rayDirection, hitable->triangle, &tempHitrec))
                 {
                     if (tempHitrec.distance < closestSoFar)
                     {
@@ -287,6 +238,12 @@ bool scatterMetal(HitRecord * hitrec, v3 rayOrigin, v3 rayDirection, v3 * attenu
     return (dot(reflectDirection, normal) > 0);
 }
 
+bool emit(HitRecord * hitRec, v3 * out_light_color)
+{
+    *out_light_color = hitRec->material->light_color;
+    return true;
+}
+
 v3 color(v3 rayOrigin, v3 rayDirection, Hitable * hitables, int hitableCount, int depth)
 {
     HitRecord hitrec;
@@ -297,6 +254,8 @@ v3 color(v3 rayOrigin, v3 rayDirection, Hitable * hitables, int hitableCount, in
         {
             v3 attenuation;
             v3 scatterDirection;
+            v3 light_color = {0, 0, 0};
+            bool emitted = false;
             bool hasScatterHit = false;
             switch (hitrec.material->shadingType)
             {
@@ -324,6 +283,12 @@ v3 color(v3 rayOrigin, v3 rayDirection, Hitable * hitables, int hitableCount, in
                 }
                 break;
                 
+                case DIFFUSE_LIGHT:
+                {
+                    emitted = emit(&hitrec, &light_color);
+                }
+                break;
+                
                 default:
                 {
                     return { 1, 0, 0 };
@@ -332,7 +297,7 @@ v3 color(v3 rayOrigin, v3 rayDirection, Hitable * hitables, int hitableCount, in
             if (hasScatterHit)
                 return attenuation*color(hitrec.point, scatterDirection, hitables, hitableCount, depth-1);
             else
-                return { 0, 0, 0 };
+                return light_color;
         }
         else
         {
@@ -341,11 +306,15 @@ v3 color(v3 rayOrigin, v3 rayDirection, Hitable * hitables, int hitableCount, in
     }
     else
     {
+        
         v3 one = {1,1,1};
+        v3 gray = {.2f, .2f, .2f};
         v3 blue = { 0.3f, 0.5f, 0.8f };
         v3 orange = { 1.0f, float(204)/float(255), float(153)/float(255) };
         float t = 0.5*(rayDirection[1] + 1.0f);
-        return ((1.0f - t)*one+t*blue);
+        return ((1.0f - t)*one+t*gray);
+        
+        //return {0,0,0};
     }
 }
 
@@ -382,54 +351,62 @@ int main (int argc, char** argv)
     
     // materials
     Material lambert1 = { LAMBERT, {0.8f, 0.3f, 0.3f} };
-    Material lambert2 = { LAMBERT, {float(153)/float(255), 0.0f, float(153)/float(255)} };
+    Material lambert2 = { LAMBERT, {0.1f, 0.0f, .7f} };
     Material metal1 = { METAL, {1.0f, 1.0f, 1.0f} };
     metal1.fuzziness = 0.0f;
-    Material metal2 = { METAL, {0.6f, 0.8f,  1.0f} };
-    metal2.fuzziness = 0.1f;
-    Material metal3 = { METAL, {0.8f, 0.8f, 0.8f} };
-    metal3.fuzziness = 0.1f;
+    Material metal2 = { METAL, {1.f, 0.84f,  .0f} };
+    metal2.fuzziness = 0.3f;
     Material glass = { DIALECTRIC, {1,1,1} };
     glass.ior = 1.5f;
+    Material light = {DIFFUSE_LIGHT};
+    light.light_color = {4, 4, 4};
+    Material light2 = {DIFFUSE_LIGHT};
+    light2.light_color = {4, 4, 4};
     
     // test objects
     Hitable testsphere1 = {};
     testsphere1.geometry = SPHERE;
     testsphere1.material = &lambert1;
-    testsphere1.sphere = { {0, 0, 2}, 0.5, 1, 0, 1 };
+    testsphere1.sphere = { {0, 0, 2}, 0.5, 1 };
     
     Hitable testsphere2 = {};
     testsphere2.geometry = SPHERE;
     testsphere2.material = &lambert2;
-    testsphere2.sphere = { {0, -100.5, 2}, 100.0, 1, 0, 1 };
+    testsphere2.sphere = { {0, -100.5, 2}, 100.0, 1 };
     
     Hitable testsphere3 = {};
     testsphere3.geometry = SPHERE;
     testsphere3.material = &metal1;
-    testsphere3.sphere = { {1, 0, 2}, 0.5, 1, 0, 0 };
+    testsphere3.sphere = { {1, 0, 2}, 0.5, 1 };
     
     Hitable testsphere4 = {};
     testsphere4.geometry = SPHERE;
-    testsphere4.material = &glass;
-    testsphere4.sphere = { {-1, 0, -1}, 0.5f, 1, 0, 1 };
+    testsphere4.material = &metal2;
+    testsphere4.sphere = { {-1, 0, 2}, 0.5f};
     
-    Hitable testsphere5 = {};
-    testsphere5.geometry = SPHERE;
-    testsphere5.material = &glass;
-    testsphere5.sphere = { {-1, 0, -1}, -0.45f, 1, 0, 1 };
+    Hitable lightsphere1 = {};
+    lightsphere1.geometry = SPHERE;
+    lightsphere1.material = &light;
+    lightsphere1.sphere = { {0, 0, 0}, 1.0f };
     
-    Hitable testTriangle = {};
-    testTriangle.geometry = TRIANGLE;
-    testTriangle.material = &metal1;
-    testTriangle.triangle = { {2.0f, 0.0f, -1}, {0.0f, 2.0f, -1}, {-2.0, 0, -1} };
+    Hitable lightsphere2 = {};
+    lightsphere2.geometry = SPHERE;
+    lightsphere2.material = &light2;
+    lightsphere2.sphere = { {-1.f, 2.7f, 3.f }, .2f };
     
-    Hitable testTriangle2 = {};
-    testTriangle2.geometry = TRIANGLE;
-    testTriangle2.material = &metal2;
-    testTriangle2.triangle = { {4.0f, 0.0f, 0}, {2.0f, 2.0f, 0}, {0, 0, 0} };
+    Hitable lightsphere3 = {};
+    lightsphere3.geometry = SPHERE;
+    lightsphere3.material = &light;
+    lightsphere3.sphere = { {-2, 3, 5 }, 1.0f };
+    
+    Hitable lightsphere4 = {};
+    lightsphere4.geometry = SPHERE;
+    lightsphere4.material = &light;
+    lightsphere4.sphere = { {-2, 3, 3 }, .2f };
+    
     
     // add test objects to "scene"
-    Hitable scene[] = {  testsphere1, testsphere2, testsphere3, testTriangle, testTriangle2 };
+    Hitable scene[] = {  testsphere1, testsphere2, testsphere3, testsphere4, lightsphere1, lightsphere2 };
     
     // random scene
     Material * randomMaterials = 0;
@@ -449,12 +426,16 @@ int main (int argc, char** argv)
          row < resolutionY;
          ++row)
     {
+        float percent_render_done = ((float)row/resolutionY)*100.f;
+        if (!(row%5)) {
+            printf("rendered: %f%\n", percent_render_done);
+        }
         for (int col = 0;
              col < resolutionX;
              ++col)
         {
             
-            int sampleCount = 60;
+            int sampleCount = 1000;
             v3 c;
             for (int i = 0;
                  i < sampleCount;
@@ -482,9 +463,10 @@ int main (int argc, char** argv)
                 
                 int hitableCount = sizeof(scene)/sizeof(scene[0]);
                 // test intersection with objects
-                c = c + color(cameraPos, ray, scene, hitableCount, 5);
+                c = c + color(cameraPos, ray, scene, hitableCount, 10);
             }
             c = c /  float(sampleCount);
+            c = clamp_v3(c, 1.f);
             //c = { sqrt(c[0]), sqrt(c[1]), sqrt(c[2]) };
             uint8_t ir = uint8_t(255.99f * c[0]);
             uint8_t ig = uint8_t(255.99f * c[1]);

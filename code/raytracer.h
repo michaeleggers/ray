@@ -1,6 +1,7 @@
 #ifndef RAYTRACER_H
 #define RAYTRACER_H
 
+#define max(a, b) (a > b ? a : b)
 
 #define global_var static
 
@@ -105,6 +106,15 @@ v3 normalize(v3 a)
     return a / length(a);
 }
 
+v3 clamp_v3(v3 a, float c)
+{
+    return {
+        a[0] > c ? c : a[0],
+        a[1] > c ? c : a[1],
+        a[2] > c ? c : a[2],
+    };
+}
+
 struct Triangle
 {
     v3 v0, v1, v2;
@@ -115,6 +125,7 @@ enum Shading_t
     LAMBERT,
     METAL,
     DIALECTRIC,
+    DIFFUSE_LIGHT,
     NORMALS
 };
 
@@ -145,6 +156,7 @@ struct Material
     {
         float fuzziness;
         float ior;
+        v3 light_color;
     };
 };
 
