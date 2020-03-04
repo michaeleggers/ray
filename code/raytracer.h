@@ -7,98 +7,105 @@
 
 struct v3
 {
-    float components[3] = { };
+    v3() { x = y = z = 0; }
     
-    
-    float& operator[](int index)
-    {
-        return components[index];
+    v3(float _x, float _y, float _z) {
+	x = _x; y = _y; z = _z;
     }
+    
+    float x, y, z;
     
     v3 operator-(v3 b)
     {
-        return {
-            components[0] - b[0],
-            components[1] - b[1],
-            components[2] - b[2]
-        };
+        return v3(
+            x - b.x,
+            y - b.y,
+            z - b.z
+	    );
     }
     
     v3 operator+(v3 b)
     {
-        return {
-            components[0] + b[0],
-            components[1] + b[1],
-            components[2] + b[2]
-        };
+        return v3(
+            x + b.x,
+            y + b.y,
+            z + b.z
+        );
     }
     
     v3 operator/(float scalar)
     {
-        return {
-            components[0] / scalar,
-            components[1] / scalar,
-            components[2] / scalar
-        };
+        return v3(
+            x / scalar,
+            y / scalar,
+            z / scalar
+	    );
     }
     
     v3 operator*(float scalar)
     {
-        return {
-            components[0] * scalar,
-            components[1] * scalar,
-            components[2] * scalar
-        };
+        return v3(
+            x * scalar,
+            y * scalar,
+            z * scalar
+	    );
     }
     
-    v3 operator*(v3 & rhs)
+    v3 operator*(v3 rhs)
     {
-        return { components[0]*rhs[0], components[1]*rhs[1], components[2]*rhs[2] };
+        return v3(x*rhs.x, y*rhs.y, z*rhs.z);
     }
-    
 };
+
+v3 operator-(v3 & v);
+v3 operator*(float scalar, v3 v);
+v3 cross(v3 a, v3 b);
+float dot(v3 a, v3 b);
+float length(v3 v);
+v3 normalize(v3 a);
+v3 clamp_v3(v3 a, float c);
 
 v3 operator-(v3 & v)
 {
-    return { 
-        -v.components[0],
-        -v.components[1],
-        -v.components[2]
-    };
+    return v3( 
+        -v.x,
+        -v.y,
+        -v.z
+	);
 }
 
 v3 operator*(float scalar, v3 v)
 {
-    return {
-        v[0] * scalar,
-        v[1] * scalar,
-        v[2] * scalar
-    };
+    return v3(
+        v.x * scalar,
+        v.y * scalar,
+        v.z * scalar
+	);
 }
 
 v3 cross(v3 a, v3 b)
 {
-    return {
-        a[1] * b[2] - a[2] * b[1],
-        a[2] * b[0] - a[0] * b[2],
-        a[0] * b[1] - a[1] * b[0]
-    };
+    return v3(
+        a.y * b.z - a.z * b.y,
+        a.z * b.x - a.x * b.z,
+        a.x * b.y - a.y * b.x
+	);
 }
 
 float dot(v3 a, v3 b)
 {
-    return
-        a[0] * b[0] +
-        a[1] * b[1] +
-        a[2] * b[2];
+    return 
+        a.x * b.x +
+        a.y * b.y +
+        a.z * b.z;
 }
 
 float length(v3 v)
 {
-    return sqrt(
-        v[0] * v[0] +
-        v[1] * v[1] +
-        v[2] * v[2]);
+    return sqrtf(
+        v.x * v.x +
+        v.y * v.y +
+        v.z * v.z);
 }
 
 v3 normalize(v3 a)
@@ -108,11 +115,11 @@ v3 normalize(v3 a)
 
 v3 clamp_v3(v3 a, float c)
 {
-    return {
-        a[0] > c ? c : a[0],
-        a[1] > c ? c : a[1],
-        a[2] > c ? c : a[2],
-    };
+    return v3(
+        a.x > c ? c : a.x,
+        a.y > c ? c : a.y,
+        a.z > c ? c : a.z
+	);
 }
 
 struct Triangle
@@ -162,6 +169,11 @@ struct Material
 
 struct Hitable
 {
+    Hitable() {
+	geometry = SPHERE;
+	material = 0;
+    }
+    
     Geometry_t geometry;
     Material * material;
     union
@@ -185,4 +197,4 @@ bool hit(v3 rayOrigin, v3 rayDirection, Hitable* hitables, int hitableCount, Hit
 v3 color(v3 rayOrigin, v3 rayDirection, Hitable * hitables, int hitableCount, int depth);
 float primaryRaySphere(v3 rayOrigin, v3 rayDirection, Sphere object);
 
-#endif RAYTRACER_H
+#endif

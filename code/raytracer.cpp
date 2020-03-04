@@ -16,13 +16,7 @@
 // TODO(Michael): write ppm data into buffer and write to file at the end.
 // TODO(Michael): read scene from file
 
-global_var v3 cameraPos = { 0.0f, 0.0f, 4.0f };
-global_var v3 lookAt = { 0.0f, 0.0f, 0.0f }; // viewport center
-global_var v3 up = { 0, 1, 0 };
-global_var float viewPortWidth = 2.0f;
-global_var float viewPortHeight = 2.0f;
-global_var int resolutionX = 512;
-global_var int resolutionY = 512;
+
 global_var float const EPSILON = 0.00001f;
 
 inline float randBetween(float lowerBound, float upperBound)
@@ -57,7 +51,7 @@ void createRandomScene(int hitableCount, Hitable ** hitables, int materialCount,
     {
         float materialIndex = randBetween(0, materialCount);
         Material * material = *materials + (int)materialIndex;
-        Hitable sphere = {};
+        Hitable sphere;
         sphere.geometry = SPHERE;
         sphere.material = material;
         sphere.sphere = {
@@ -130,6 +124,13 @@ bool hit(v3 rayOrigin, v3 rayDirection, Hitable* hitables, int hitableCount, Hit
                 }
             }
             break;
+
+	case TRIANGLE:
+	{
+	    // TODO: Implement
+	}
+	break;
+	
         }
         hitable++;
     }
@@ -142,9 +143,9 @@ v3 diffuse(Light l, Sphere s, v3 point)
     v3 normal = normalize(point - s.pos);
     v3 pointToLight = normalize(l.pos - point); // TODO(Michael): why -1?
     v3 illumination;
-    illumination[0] = l.r * s.r * dot(normal, pointToLight);
-    illumination[1] = l.g * s.g * dot(normal, pointToLight);
-    illumination[2] = l.b * s.b * dot(normal, pointToLight);
+    illumination.x = l.r * s.r * dot(normal, pointToLight);
+    illumination.y = l.g * s.g * dot(normal, pointToLight);
+    illumination.z = l.b * s.b * dot(normal, pointToLight);
     
     return illumination;
 }
@@ -153,7 +154,7 @@ v3 colorizeNormal(Sphere s, v3 point)
 {
     v3 normal = normalize(point - s.pos);
     // mapping components of normalvector from [-1.0,1.0] to [0.0,1.0]
-    v3 foo = { normal[0] + 1, normal[1] + 1, normal[2] + 1};
+    v3 foo = { normal.x + 1, normal.y + 1, normal.z + 1};
     return 0.5f * foo;
 }
 
@@ -178,7 +179,7 @@ bool scatterLambertianColorizeNormals(HitRecord * hitrec, v3 * attenuation, v3 *
 {
     v3 point = hitrec->point;
     v3 normal = hitrec->normal;
-    *attenuation = { normal[0]+1, normal[1]+1 , normal[2]+1 };
+    *attenuation = { normal.x+1, normal.y+1 , normal.z+1 };
     *attenuation = 0.5**attenuation; // NOTE(Michael): hihihihihi
     v3 target = point + normal + randomInUnitSphere();
     *scatterDirection = normalize(target-point);
@@ -311,7 +312,7 @@ v3 color(v3 rayOrigin, v3 rayDirection, Hitable * hitables, int hitableCount, in
         v3 gray = {.2f, .2f, .2f};
         v3 blue = { 0.3f, 0.5f, 0.8f };
         v3 orange = { 1.0f, float(204)/float(255), float(153)/float(255) };
-        float t = 0.5*(rayDirection[1] + 1.0f);
+        float t = 0.5*(rayDirection.y + 1.0f);
         return ((1.0f - t)*one+t*gray);
         
         //return {0,0,0};
@@ -320,18 +321,28 @@ v3 color(v3 rayOrigin, v3 rayDirection, Hitable * hitables, int hitableCount, in
 
 int main (int argc, char** argv)
 {
+    global_var v3 cameraPos( 0.0f, 0.0f, 4.0f );
+    global_var v3 lookAt( 0.0f, 0.0f, 0.0f ); // viewport center
+    global_var v3 up( 0, 1, 0 );
+    global_var float viewPortWidth = 2.0f;
+    global_var float viewPortHeight = 2.0f;
+    global_var int resolutionX = 512;
+    global_var int resolutionY = 512;
+
     // create ppm file, header and buffer
-    FILE* ppmFile = fopen("ray_test.ppm", "w");
+    FILE* ppmFile;
+    fopen_s(&ppmFile, "ray_test.ppm", "w");
     std::string resolutionXA = std::to_string(resolutionX);
     std::string resolutionYA = std::to_string(resolutionY);
     std::string ppmHeader = "P3\n" + resolutionXA + " " + resolutionYA + "\n255\n";
-    char * outputBuffer = (char *)malloc(sizeof(char)*3*4*(resolutionX*resolutionY) + sizeof(char)*ppmHeader.length());
+    uint32_t outputSize = sizeof(char)*3*4*(resolutionX*resolutionY) + sizeof(char)*ppmHeader.length();
+    char * outputBuffer = (char *)malloc(outputSize);
     if (!outputBuffer)
     {
         return -1;
     }
     char *bufferPos = outputBuffer;
-    strcpy(bufferPos, ppmHeader.c_str());
+    strcpy_s(bufferPos, outputSize, ppmHeader.c_str());
     bufferPos += ppmHeader.length();
     
     // compute view, right and up vectors via Gram-Schmidt orthogonalization (p. 236 Van Verth)
@@ -428,7 +439,7 @@ int main (int argc, char** argv)
     {
         float percent_render_done = ((float)row/resolutionY)*100.f;
         if (!(row%5)) {
-            printf("rendered: %f%\n", percent_render_done);
+            printf("rendered: %f\n", percent_render_done);
         }
         for (int col = 0;
              col < resolutionX;
@@ -468,11 +479,11 @@ int main (int argc, char** argv)
             c = c /  float(sampleCount);
             c = clamp_v3(c, 1.f);
             //c = { sqrt(c[0]), sqrt(c[1]), sqrt(c[2]) };
-            uint8_t ir = uint8_t(255.99f * c[0]);
-            uint8_t ig = uint8_t(255.99f * c[1]);
-            uint8_t ib = uint8_t(255.99f * c[2]);
+            uint8_t ir = uint8_t(255.99f * c.x);
+            uint8_t ig = uint8_t(255.99f * c.y);
+            uint8_t ib = uint8_t(255.99f * c.z);
             std::string rgb = std::to_string(ir) + " " + std::to_string(ig) + " " + std::to_string(ib) + " ";
-            strcpy(bufferPos, rgb.c_str());
+            strcpy_s(bufferPos, outputSize, rgb.c_str());
             bufferPos += rgb.length();
         }
         *bufferPos = '\n';
