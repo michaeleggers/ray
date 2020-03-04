@@ -21,16 +21,15 @@ global_var float const EPSILON = 0.00001f;
 
 inline float randBetween(float lowerBound, float upperBound)
 {
-    float offset = lowerBound - 0.0f;
     float range = upperBound - lowerBound;
     return range/1.0f * (rand()/(float)RAND_MAX) + lowerBound;
 }
 
-void createRandomScene(int hitableCount, Hitable ** hitables, int materialCount, Material ** materials)
+void createRandomScene(uint32_t hitableCount, Hitable ** hitables, uint32_t materialCount, Material ** materials)
 {
     *materials = (Material*)malloc(sizeof(Material)*materialCount);
     Material * material = *materials;
-    for (int i = 0;
+    for (uint32_t i = 0;
          i < materialCount;
          ++i)
     {
@@ -45,22 +44,23 @@ void createRandomScene(int hitableCount, Hitable ** hitables, int materialCount,
     
     *hitables = (Hitable*)malloc(sizeof(Hitable)*hitableCount);
     Hitable * hitable = *hitables;
-    for (int i = 0;
+    for (uint32_t i = 0;
          i < hitableCount;
          ++i)
     {
         float materialIndex = randBetween(0, materialCount);
-        Material * material = *materials + (int)materialIndex;
+        Material * mat = *materials + (int)materialIndex;
         Hitable sphere;
         sphere.geometry = SPHERE;
-        sphere.material = material;
+        sphere.material = mat;
         sphere.sphere = {
             {
                 randBetween(-40.0f, 40.0f),
                 randBetween(-20.0f, 20.0f),
                 randBetween(-20.0f, 20.0f)
             },
-            randBetween(0.1f, 7.0f)
+            randBetween(0.1f, 7.0f),
+	    0, 0, 0
         };
         *hitable = sphere;
         hitable++;
@@ -161,8 +161,8 @@ v3 colorizeNormal(Sphere s, v3 point)
 v3 randomInUnitSphere()
 {
     v3 one = {1,1,1};
-    v3 p;
-    v3 test;
+    v3 p = {};
+    v3 test = {};
     do 
     {
         test = { 
@@ -228,10 +228,9 @@ bool refract(HitRecord * hitrec, v3 rayDirection, v3 * attenuation, v3 * refract
     return false;
 }
 
-bool scatterMetal(HitRecord * hitrec, v3 rayOrigin, v3 rayDirection, v3 * attenuation, v3 * scatterDirection)
+bool scatterMetal(HitRecord * hitrec, v3 rayDirection, v3 * attenuation, v3 * scatterDirection)
 {
     v3 normal = hitrec->normal;
-    v3 point = hitrec->point;
     float fuzziness = hitrec->material->fuzziness;
     v3 reflectDirection = reflect(rayDirection, normal);
     *scatterDirection = normalize(reflectDirection + fuzziness*randomInUnitSphere());
@@ -268,7 +267,7 @@ v3 color(v3 rayOrigin, v3 rayDirection, Hitable * hitables, int hitableCount, in
                 
                 case METAL:
                 {
-                    hasScatterHit = scatterMetal(&hitrec, rayOrigin, rayDirection, &attenuation, &scatterDirection);
+                    hasScatterHit = scatterMetal(&hitrec, rayDirection, &attenuation, &scatterDirection);
                 }
                 break;
                 
@@ -312,7 +311,7 @@ v3 color(v3 rayOrigin, v3 rayDirection, Hitable * hitables, int hitableCount, in
         v3 gray = {.2f, .2f, .2f};
         v3 blue = { 0.3f, 0.5f, 0.8f };
         v3 orange = { 1.0f, float(204)/float(255), float(153)/float(255) };
-        float t = 0.5*(rayDirection.y + 1.0f);
+        float t = 0.5f*(rayDirection.y + 1.0f);
         return ((1.0f - t)*one+t*gray);
         
         //return {0,0,0};
@@ -326,8 +325,8 @@ int main (int argc, char** argv)
     global_var v3 up( 0, 1, 0 );
     global_var float viewPortWidth = 2.0f;
     global_var float viewPortHeight = 2.0f;
-    global_var int resolutionX = 512;
-    global_var int resolutionY = 512;
+    global_var uint32_t resolutionX = 512;
+    global_var uint32_t resolutionY = 512;
 
     // create ppm file, header and buffer
     FILE* ppmFile;
@@ -335,7 +334,7 @@ int main (int argc, char** argv)
     std::string resolutionXA = std::to_string(resolutionX);
     std::string resolutionYA = std::to_string(resolutionY);
     std::string ppmHeader = "P3\n" + resolutionXA + " " + resolutionYA + "\n255\n";
-    uint32_t outputSize = sizeof(char)*3*4*(resolutionX*resolutionY) + sizeof(char)*ppmHeader.length();
+    uint32_t outputSize = sizeof(char)*3*4*(resolutionX*resolutionY) + (uint32_t)(sizeof(char)*ppmHeader.length());
     char * outputBuffer = (char *)malloc(outputSize);
     if (!outputBuffer)
     {
@@ -347,7 +346,6 @@ int main (int argc, char** argv)
     
     // compute view, right and up vectors via Gram-Schmidt orthogonalization (p. 236 Van Verth)
     v3 viewDir = lookAt - cameraPos;
-    float cameraDistance = length(viewDir); // TODO(Michael): LOL!
     viewDir = normalize(viewDir);
     v3 viewUp = normalize(up - (viewDir * dot(up, viewDir)));
     v3 viewSide = cross(viewDir, viewUp); // TODO(Michael): righ or left handed system? FIGURE THIS OUT!!!!
@@ -361,69 +359,69 @@ int main (int argc, char** argv)
     float stepY = pixelHeight / 2.0f;
     
     // materials
-    Material lambert1 = { LAMBERT, {0.8f, 0.3f, 0.3f} };
-    Material lambert2 = { LAMBERT, {0.1f, 0.0f, .7f} };
-    Material metal1 = { METAL, {1.0f, 1.0f, 1.0f} };
+    Material lambert1 = { LAMBERT, v3(0.8f, 0.3f, 0.3f), {} };
+    Material lambert2 = { LAMBERT, v3(0.1f, 0.0f, .7f), {} };
+    Material metal1 = { METAL, v3(1.0f, 1.0f, 1.0f), {} };
     metal1.fuzziness = 0.0f;
-    Material metal2 = { METAL, {1.f, 0.84f,  .0f} };
+    Material metal2 = { METAL, v3(1.f, 0.84f, .0f), {} };
     metal2.fuzziness = 0.3f;
-    Material glass = { DIALECTRIC, {1,1,1} };
+    Material glass = { DIALECTRIC, v3(1,1,1), {} };
     glass.ior = 1.5f;
-    Material light = {DIFFUSE_LIGHT};
-    light.light_color = {4, 4, 4};
-    Material light2 = {DIFFUSE_LIGHT};
-    light2.light_color = {4, 4, 4};
+    Material light = {DIFFUSE_LIGHT, v3(), {}};
+    Material light2 = {DIFFUSE_LIGHT, v3(), {}};
+    light.light_color = v3(4, 4, 4);
+    light2.light_color = v3(4, 4, 4);
     
     // test objects
     Hitable testsphere1 = {};
     testsphere1.geometry = SPHERE;
     testsphere1.material = &lambert1;
-    testsphere1.sphere = { {0, 0, 2}, 0.5, 1 };
+    testsphere1.sphere = { {0, 0, 2}, 0.5, 1, 0, 0 };
     
     Hitable testsphere2 = {};
     testsphere2.geometry = SPHERE;
     testsphere2.material = &lambert2;
-    testsphere2.sphere = { {0, -100.5, 2}, 100.0, 1 };
+    testsphere2.sphere = { {0, -100.5, 2}, 100.0, 1, 0, 0 };
     
     Hitable testsphere3 = {};
     testsphere3.geometry = SPHERE;
     testsphere3.material = &metal1;
-    testsphere3.sphere = { {1, 0, 2}, 0.5, 1 };
+    testsphere3.sphere = { {1, 0, 2}, 0.5, 1, 0, 0 };
     
     Hitable testsphere4 = {};
     testsphere4.geometry = SPHERE;
     testsphere4.material = &metal2;
-    testsphere4.sphere = { {-1, 0, 2}, 0.5f};
+    testsphere4.sphere = { {-1, 0, 2}, 0.5f, 0, 0, 0};
     
     Hitable lightsphere1 = {};
     lightsphere1.geometry = SPHERE;
     lightsphere1.material = &light;
-    lightsphere1.sphere = { {0, 0, 0}, 1.0f };
+    lightsphere1.sphere = { {0, 0, 0}, 1.0f, 0, 0, 0 };
     
     Hitable lightsphere2 = {};
     lightsphere2.geometry = SPHERE;
     lightsphere2.material = &light2;
-    lightsphere2.sphere = { {-1.f, 2.7f, 3.f }, .2f };
+    lightsphere2.sphere = { {-1.f, 2.7f, 3.f }, .2f, 0, 0, 0 };
     
     Hitable lightsphere3 = {};
     lightsphere3.geometry = SPHERE;
     lightsphere3.material = &light;
-    lightsphere3.sphere = { {-2, 3, 5 }, 1.0f };
+    lightsphere3.sphere = { {-2, 3, 5 }, 1.0f, 0, 0, 0 };
     
     Hitable lightsphere4 = {};
     lightsphere4.geometry = SPHERE;
     lightsphere4.material = &light;
-    lightsphere4.sphere = { {-2, 3, 3 }, .2f };
+    lightsphere4.sphere = { {-2, 3, 3 }, .2f, 0, 0, 0 };
     
     
     // add test objects to "scene"
     Hitable scene[] = {  testsphere1, testsphere2, testsphere3, testsphere4, lightsphere1, lightsphere2 };
     
     // random scene
-    Material * randomMaterials = 0;
-    int randMaterialCount = 40;
-    Hitable * randomHitables = 0;
-    int randHitableCount = 100;
+    Material * randomMaterials = nullptr;
+    uint32_t randMaterialCount = 40;
+    Hitable * randomHitables = nullptr;
+    uint32_t randHitableCount = 100;
     createRandomScene(randHitableCount, &randomHitables, randMaterialCount, &randomMaterials);
     
     // test lights
@@ -433,22 +431,22 @@ int main (int argc, char** argv)
     testLight.g = 1.0f;
     testLight.b = 1.0f;
     
-    for (int row = 0;
+    for (uint32_t row = 0;
          row < resolutionY;
          ++row)
     {
         float percent_render_done = ((float)row/resolutionY)*100.f;
         if (!(row%5)) {
-            printf("rendered: %f\n", percent_render_done);
+            printf("rendered: %.2f\n", (float)percent_render_done);
         }
-        for (int col = 0;
+        for (uint32_t col = 0;
              col < resolutionX;
              ++col)
         {
             
-            int sampleCount = 1000;
+            uint32_t sampleCount = 1000;
             v3 c;
-            for (int i = 0;
+            for (uint32_t i = 0;
                  i < sampleCount;
                  i++)
             {
@@ -491,7 +489,7 @@ int main (int argc, char** argv)
     }
     *bufferPos = '\0';
     bufferPos++;
-    int bytesWritten = bufferPos - outputBuffer;
+    size_t bytesWritten = (size_t)bufferPos - (size_t)outputBuffer;
     fwrite(outputBuffer, sizeof(char), bytesWritten, ppmFile);
     fclose(ppmFile);
     

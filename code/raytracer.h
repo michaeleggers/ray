@@ -57,6 +57,82 @@ struct v3
     }
 };
 
+struct Triangle
+{
+    v3 v0, v1, v2;
+};
+
+enum Shading_t
+{
+    LAMBERT,
+    METAL,
+    DIALECTRIC,
+    DIFFUSE_LIGHT,
+    NORMALS
+};
+
+enum Geometry_t
+{
+    SPHERE,
+    TRIANGLE
+};
+
+struct Light
+{
+    v3 pos;
+    float r, g, b;
+};
+
+struct Sphere
+{
+    v3 pos;
+    float radius;
+    float r, g, b; // is this the diffuse?
+};
+
+struct Material
+{
+    Shading_t shadingType;
+    v3 attenuation;
+    union
+    {
+        float fuzziness;
+        float ior;
+	// NOTE: This v3 with non-trivial Ctor is not supported in union in C++98!
+        v3 light_color;
+    };
+};
+
+struct Hitable
+{
+    Hitable() {
+	geometry = SPHERE;
+    }
+    
+    Geometry_t geometry;
+    Material * material;
+    union
+    {
+        Sphere sphere;
+        Triangle triangle;
+    };
+};
+
+struct HitRecord
+{
+    HitRecord() {
+	material = 0;
+	distance = 0.f;
+	point = v3(0, 0, 0);
+	normal = v3(0, 0, 0);
+    }
+    Material * material;
+    float distance;
+    v3 point;
+    v3 normal;
+};
+
+// function prototypes, v3 specific
 v3 operator-(v3 & v);
 v3 operator*(float scalar, v3 v);
 v3 cross(v3 a, v3 b);
@@ -64,6 +140,22 @@ float dot(v3 a, v3 b);
 float length(v3 v);
 v3 normalize(v3 a);
 v3 clamp_v3(v3 a, float c);
+
+// function prototypes
+bool hit(v3 rayOrigin, v3 rayDirection, Hitable* hitables, int hitableCount, HitRecord * hitrec);
+v3 color(v3 rayOrigin, v3 rayDirection, Hitable * hitables, int hitableCount, int depth);
+float primaryRaySphere(v3 rayOrigin, v3 rayDirection, Sphere object);
+void createRandomScene(uint32_t hitableCount, Hitable ** hitables, uint32_t materialCount, Material ** materials);
+bool hitSphere(v3 rayOrigin, v3 rayDirection, Sphere object, HitRecord * hitrec);
+v3 diffuse(Light l, Sphere s, v3 point);
+v3 colorizeNormal(Sphere s, v3 point);
+v3 randomInUnitSphere();
+bool scatterLambertianColorizeNormals(HitRecord * hitrec, v3 * attenuation, v3 * scatterDirection);
+bool scatterLambertian(HitRecord * hitrec, v3 * attenuation, v3 * scatterDirection);
+v3 reflect(v3 rayDirection, v3 normal);
+bool refract(HitRecord * hitrec, v3 rayDirection, v3 * attenuation, v3 * refracted);
+bool scatterMetal(HitRecord * hitrec, v3 rayDirection, v3 * attenuation, v3 * scatterDirection);
+bool emit(HitRecord * hitRec, v3 * out_light_color);
 
 v3 operator-(v3 & v)
 {
@@ -122,79 +214,6 @@ v3 clamp_v3(v3 a, float c)
 	);
 }
 
-struct Triangle
-{
-    v3 v0, v1, v2;
-};
 
-enum Shading_t
-{
-    LAMBERT,
-    METAL,
-    DIALECTRIC,
-    DIFFUSE_LIGHT,
-    NORMALS
-};
-
-enum Geometry_t
-{
-    SPHERE,
-    TRIANGLE
-};
-
-struct Light
-{
-    v3 pos;
-    float r, g, b;
-};
-
-struct Sphere
-{
-    v3 pos;
-    float radius;
-    float r, g, b; // is this the diffuse?
-};
-
-struct Material
-{
-    Shading_t shadingType;
-    v3 attenuation;
-    union
-    {
-        float fuzziness;
-        float ior;
-        v3 light_color;
-    };
-};
-
-struct Hitable
-{
-    Hitable() {
-	geometry = SPHERE;
-	material = 0;
-    }
-    
-    Geometry_t geometry;
-    Material * material;
-    union
-    {
-        Sphere sphere;
-        Triangle triangle;
-    };
-};
-
-struct HitRecord
-{
-    Material * material;
-    float distance;
-    v3 point;
-    v3 normal;
-};
-
-
-// function prototypes
-bool hit(v3 rayOrigin, v3 rayDirection, Hitable* hitables, int hitableCount, HitRecord * hitrec);
-v3 color(v3 rayOrigin, v3 rayDirection, Hitable * hitables, int hitableCount, int depth);
-float primaryRaySphere(v3 rayOrigin, v3 rayDirection, Sphere object);
 
 #endif
