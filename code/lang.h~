@@ -1,0 +1,22 @@
+#ifndef TR_LANG_H
+#define TR_LANG_H
+
+#include <stdio.h>
+#include <stdlib.h>
+
+void _Assert(char *, unsigned, char *);
+
+#ifdef DEBUG
+
+
+    #define ASSERT(f) \
+        if(f)         \
+	    NULL;     \
+	else 	      \
+	    _Assert(__FILE__, __LINE__, #f)
+#else
+
+    #define ASSERT(f) NULL
+#endif
+
+#endif

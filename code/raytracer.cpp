@@ -4,7 +4,11 @@
 #include <stdint.h>
 #include <string>
 
+#include "lang.h"
 #include "raytracer.h"
+
+#define STB_IMAGE_IMPLEMENTATION
+#include "stb_image.h"
 
 #define PI 3.1415926f
 
@@ -104,9 +108,7 @@ bool hit(v3 rayOrigin, v3 rayDirection, Hitable* hitables, int hitableCount, Hit
     float closestSoFar = 0x7FFFFFFF;
     bool hasHit = false;
     Hitable * hitable = hitables;
-    for (int i = 0;
-         i < hitableCount;
-         i++)
+    for (int i = 0; i < hitableCount; i++)
     {
         tempHitrec.material = hitable->material;
         switch (hitable->geometry)
@@ -244,7 +246,78 @@ bool emit(HitRecord * hitRec, v3 * out_light_color)
     return true;
 }
 
-v3 color(v3 rayOrigin, v3 rayDirection, Hitable * hitables, int hitableCount, int depth)
+void init_skybox(Skybox * skybox,
+		 char const * negx_file, char const * posx_file,
+		 char const * negy_file, char const * posy_file,
+		 char const * negz_file, char const * posz_file)
+{
+    int x, y, n;
+    skybox->negx = stbi_load(negx_file, &x, &y, &n, 3);
+    skybox->posx = stbi_load(posx_file, &x, &y, &n, 3);
+    skybox->negy = stbi_load(negy_file, &x, &y, &n, 3);
+    skybox->posy = stbi_load(posy_file, &x, &y, &n, 3);
+    skybox->negz = stbi_load(negz_file, &x, &y, &n, 3);
+    skybox->posz = stbi_load(posz_file, &x, &y, &n, 3);
+    ASSERT(skybox->negx != 0); ASSERT(skybox->negx != 0);
+    ASSERT(skybox->negy != 0); ASSERT(skybox->negy != 0);
+    ASSERT(skybox->negz != 0); ASSERT(skybox->negz != 0);
+    skybox->width = x;
+    skybox->height = y;
+}
+
+void cleanup_skybox(Skybox * skybox)
+{
+    ASSERT(skybox->negx != 0); ASSERT(skybox->negx != 0);
+    ASSERT(skybox->negy != 0); ASSERT(skybox->negy != 0);
+    ASSERT(skybox->negz != 0); ASSERT(skybox->negz != 0);
+    stbi_image_free(skybox->negx); stbi_image_free(skybox->posx);
+    stbi_image_free(skybox->negy); stbi_image_free(skybox->posy);
+    stbi_image_free(skybox->negz); stbi_image_free(skybox->posz);
+}
+
+v3 sample_skybox(Skybox skybox, v3 direction)
+{
+    v3 result;
+    uint8_t * skybox_plane = 0;
+    direction.y *= -1.f;
+    
+    if ( abs(direction.x) > abs(direction.y) ) {
+	if ( abs(direction.x) > abs(direction.z) ) {
+	    if (direction.x > 0) skybox_plane = skybox.posx;
+	    else                 skybox_plane = skybox.negx;
+	    goto done;
+	}
+	else {
+	    goto choose_z;
+	}
+    }
+    else {
+	if ( abs(direction.y) > abs(direction.z) ) {
+	    if (direction.y > 0) skybox_plane = skybox.posy;
+	    else                 skybox_plane = skybox.negy;
+	    goto done;
+	}
+	else {
+	    goto choose_z;
+	}
+    }
+
+choose_z:   if (direction.z > 0) skybox_plane = skybox.posz;
+	    else                 skybox_plane = skybox.negz;    
+	
+done:
+    uint32_t u = (uint32_t)((0.5f*direction.x + 0.5f) * (float)skybox.width);
+    uint32_t v = (uint32_t)((0.5f*direction.y + 0.5f) * (float)skybox.height);
+    uint8_t r = skybox_plane[3*(v*skybox.width+u)];
+    uint8_t g = skybox_plane[3*(v*skybox.width+u)+1];
+    uint8_t b = skybox_plane[3*(v*skybox.width+u)+2];
+    float fr = 1.f/255.f * (float)r;
+    float fg = 1.f/255.f * (float)g;
+    float fb = 1.f/255.f * (float)b;
+    return v3(fr, fg, fb);
+}
+
+v3 color(v3 rayOrigin, v3 rayDirection, Hitable * hitables, int hitableCount, int depth, Skybox skybox)
 {
     HitRecord hitrec;
     bool hasHit = hit(rayOrigin, rayDirection, hitables, hitableCount, &hitrec);
@@ -267,7 +340,7 @@ v3 color(v3 rayOrigin, v3 rayDirection, Hitable * hitables, int hitableCount, in
                 
                 case METAL:
                 {
-                    hasScatterHit = scatterMetal(&hitrec, rayDirection, &attenuation, &scatterDirection);
+                    hasScatterHit = (&hitrec, rayDirection, &attenuation, &scatterDirection);
                 }
                 break;
                 
@@ -287,32 +360,27 @@ v3 color(v3 rayOrigin, v3 rayDirection, Hitable * hitables, int hitableCount, in
                 {
                     emitted = emit(&hitrec, &light_color);
                 }
-                break;
-                
-                default:
-                {
-                    return { 1, 0, 0 };
-                }
+                break;               
             }
             if (hasScatterHit)
-                return attenuation*color(hitrec.point, scatterDirection, hitables, hitableCount, depth-1);
+                return attenuation*color(hitrec.point, scatterDirection, hitables, hitableCount, depth-1, skybox);
             else
                 return light_color;
         }
-        else
+        else // depth == 0
         {
             return { 0, 0, 0 };
         }
-    }
+    } // if (hasHit)
     else
     {
-        
-        v3 one = {1,1,1};
-        v3 gray = {.2f, .2f, .2f};
-        v3 blue = { 0.3f, 0.5f, 0.8f };
-        v3 orange = { 1.0f, float(204)/float(255), float(153)/float(255) };
-        float t = 0.5f*(rayDirection.y + 1.0f);
-        return ((1.0f - t)*one+t*gray);
+	return sample_skybox(skybox, rayDirection);
+        // v3 one = {1,1,1};
+        // v3 gray = {.2f, .2f, .2f};
+        // v3 blue = { 0.3f, 0.5f, 0.8f };
+        // v3 orange = { 1.0f, float(204)/float(255), float(153)/float(255) };
+        // float t = 0.5f*(rayDirection.y + 1.0f);
+        // return ((1.0f - t)*one+t*gray);
         
         //return {0,0,0};
     }
@@ -320,7 +388,7 @@ v3 color(v3 rayOrigin, v3 rayDirection, Hitable * hitables, int hitableCount, in
 
 int main (int argc, char** argv)
 {
-    global_var v3 cameraPos( 0.0f, 0.0f, 4.0f );
+    global_var v3 cameraPos( 0.5f, 0.f, -.5f );
     global_var v3 lookAt( 0.0f, 0.0f, 0.0f ); // viewport center
     global_var v3 up( 0, 1, 0 );
     global_var float viewPortWidth = 2.0f;
@@ -386,7 +454,7 @@ int main (int argc, char** argv)
     Hitable testsphere3 = {};
     testsphere3.geometry = SPHERE;
     testsphere3.material = &metal1;
-    testsphere3.sphere = { {1, 0, 2}, 0.5, 1, 0, 0 };
+    testsphere3.sphere = { {0, 0, 0}, 0.25, 1, 0, 0 };
     
     Hitable testsphere4 = {};
     testsphere4.geometry = SPHERE;
@@ -415,7 +483,7 @@ int main (int argc, char** argv)
     
     
     // add test objects to "scene"
-    Hitable scene[] = {  testsphere1, testsphere2, testsphere3, testsphere4, lightsphere1, lightsphere2 };
+    Hitable scene[] = { testsphere3 };
     
     // random scene
     Material * randomMaterials = nullptr;
@@ -430,25 +498,30 @@ int main (int argc, char** argv)
     testLight.r = 1.0f;
     testLight.g = 1.0f;
     testLight.b = 1.0f;
+
+    //skybox
+    Skybox skybox;
+    init_skybox(&skybox,
+		"../textures/beach_signed/negx.jpg",
+		"../textures/beach_signed/posx.jpg",
+		"../textures/beach_signed/negy.jpg",
+		"../textures/beach_signed/posy.jpg",
+		"../textures/beach_signed/negz.jpg",
+		"../textures/beach_signed/posz.jpg");
+    printf("Skybox width/height: (%d, %d)\n", skybox.width, skybox.height);
     
-    for (uint32_t row = 0;
-         row < resolutionY;
-         ++row)
+    for (uint32_t row = 0; row < resolutionY; ++row)
     {
         float percent_render_done = ((float)row/resolutionY)*100.f;
         if (!(row%5)) {
             printf("rendered: %.2f\n", (float)percent_render_done);
         }
-        for (uint32_t col = 0;
-             col < resolutionX;
-             ++col)
+        for (uint32_t col = 0; col < resolutionX; ++col)
         {
             
-            uint32_t sampleCount = 1000;
+            uint32_t sampleCount = 100;
             v3 c;
-            for (uint32_t i = 0;
-                 i < sampleCount;
-                 i++)
+            for (uint32_t i = 0; i < sampleCount; i++)
             {
                 // compute biases for supersampling
                 float colBias = (rand()/float(RAND_MAX));
@@ -472,7 +545,7 @@ int main (int argc, char** argv)
                 
                 int hitableCount = sizeof(scene)/sizeof(scene[0]);
                 // test intersection with objects
-                c = c + color(cameraPos, ray, scene, hitableCount, 10);
+                c = c + color(cameraPos, ray, scene, hitableCount, 10, skybox);
             }
             c = c /  float(sampleCount);
             c = clamp_v3(c, 1.f);
@@ -492,6 +565,7 @@ int main (int argc, char** argv)
     size_t bytesWritten = (size_t)bufferPos - (size_t)outputBuffer;
     fwrite(outputBuffer, sizeof(char), bytesWritten, ppmFile);
     fclose(ppmFile);
+    cleanup_skybox(&skybox);
     
     return 0;
 }

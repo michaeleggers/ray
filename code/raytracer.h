@@ -132,6 +132,23 @@ struct HitRecord
     v3 normal;
 };
 
+struct Skybox
+{
+    Skybox() {
+	negx = posx = 0;
+	negy = posy = 0;
+	negz = posz = 0;
+	width = height = 0;
+    }
+    uint8_t * negx;
+    uint8_t * posx;
+    uint8_t * negy;
+    uint8_t * posy;
+    uint8_t * negz;
+    uint8_t * posz;
+    uint32_t width, height;
+};
+
 // function prototypes, v3 specific
 v3 operator-(v3 & v);
 v3 operator*(float scalar, v3 v);
@@ -143,7 +160,7 @@ v3 clamp_v3(v3 a, float c);
 
 // function prototypes
 bool hit(v3 rayOrigin, v3 rayDirection, Hitable* hitables, int hitableCount, HitRecord * hitrec);
-v3 color(v3 rayOrigin, v3 rayDirection, Hitable * hitables, int hitableCount, int depth);
+v3 color(v3 rayOrigin, v3 rayDirection, Hitable * hitables, int hitableCount, int depth, Skybox skybox);
 float primaryRaySphere(v3 rayOrigin, v3 rayDirection, Sphere object);
 void createRandomScene(uint32_t hitableCount, Hitable ** hitables, uint32_t materialCount, Material ** materials);
 bool hitSphere(v3 rayOrigin, v3 rayDirection, Sphere object, HitRecord * hitrec);
@@ -156,6 +173,12 @@ v3 reflect(v3 rayDirection, v3 normal);
 bool refract(HitRecord * hitrec, v3 rayDirection, v3 * attenuation, v3 * refracted);
 bool scatterMetal(HitRecord * hitrec, v3 rayDirection, v3 * attenuation, v3 * scatterDirection);
 bool emit(HitRecord * hitRec, v3 * out_light_color);
+void init_skybox(Skybox * skybox,
+		 char const * negx_file, char const * posx_file,
+		 char const * negy_file, char const * posy_file,
+		 char const * negz_file, char const * posz_file);
+void cleanup_skybox(Skybox * skybox);
+v3 sample_skybox(Skybox skybox, v3 direction);
 
 v3 operator-(v3 & v)
 {
