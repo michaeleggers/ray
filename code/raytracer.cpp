@@ -1,3 +1,4 @@
+#include <assert.h>
 #include <math.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -116,6 +117,10 @@ bool hit(v3 rayOrigin, v3 rayDirection, Hitable* hitables, int hitableCount, Hit
             }
         }
         break;
+        default:
+        {
+            assert("No other hit types other than SPHERE possible!\n");
+        }
         }
         hitable++;
     }
@@ -426,7 +431,7 @@ int main(int argc, char** argv)
         float percent_render_done = ((float)row / resolutionY) * 100.f;
         if ( !(row % 5) )
         {
-            printf("rendered: %f%\n", percent_render_done);
+            printf("rendered: %f pct\n", percent_render_done);
         }
         for ( int col = 0; col < resolutionX; ++col )
         {
